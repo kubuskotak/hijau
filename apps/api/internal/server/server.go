@@ -2,6 +2,8 @@
 package server
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -39,7 +41,43 @@ func (s *Server) Router() *espresso.Router {
 		Post("/api/v1/auth/signup", espresso.Doppio(s.signup)).
 		Post("/api/v1/auth/login", espresso.Doppio(s.login)).
 		Post("/api/v1/auth/logout", espresso.HandlerCtx(s.logout)).
-		Get("/api/v1/auth/me", espresso.HandlerCtx(s.me))
+		Get("/api/v1/auth/me", espresso.HandlerCtx(s.me)).
+		Get("/api/v1/orgs", espresso.HandlerCtx(s.listOrgs)).
+		Get("/api/v1/projects", espresso.HandlerCtx(s.listProjects)).
+		Post("/api/v1/projects", espresso.Doppio(s.createProject)).
+		Get("/api/v1/projects/{pid}", espresso.Doppio(s.getProject)).
+		Patch("/api/v1/projects/{pid}", espresso.Lungo(s.updateProject)).
+		Get("/api/v1/projects/{pid}/languages", espresso.Doppio(s.listLanguages)).
+		Post("/api/v1/projects/{pid}/languages", espresso.Lungo(s.createLanguage)).
+		Put("/api/v1/projects/{pid}/base-language", espresso.Lungo(s.setBaseLanguage)).
+		Get("/api/v1/projects/{pid}/namespaces", espresso.Doppio(s.listNamespaces)).
+		Post("/api/v1/projects/{pid}/namespaces", espresso.Lungo(s.createNamespace)).
+		Get("/api/v1/projects/{pid}/keys", espresso.Lungo(s.listKeys)).
+		Post("/api/v1/projects/{pid}/keys", espresso.Lungo(s.createKey)).
+		Delete("/api/v1/projects/{pid}/keys/{kid}", espresso.Doppio(s.deleteKey)).
+		Get("/api/v1/projects/{pid}/keys/{kid}/translations", espresso.Doppio(s.listKeyTranslations)).
+		Put("/api/v1/projects/{pid}/keys/{kid}/translations/{lang}", espresso.Lungo(s.setTranslation)).
+		Post("/api/v1/projects/{pid}/keys/{kid}/translations/{lang}/transition", espresso.Lungo(s.transitionTranslation))
+}
+
+// authErr maps an authorization result to the right HTTP error.
+func authErr(err error) error {
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, auth.ErrForbidden):
+		return espresso.ErrForbidden("you don't have permission to do that")
+	default:
+		return espresso.ErrInternal("authorization check failed")
+	}
+}
+
+// requireUser returns the user/PAT-owner id, or an unauthorized error.
+func requireUser(ctx context.Context) (string, error) {
+	if p := auth.FromContext(ctx); p.UserID != "" {
+		return p.UserID, nil
+	}
+	return "", espresso.ErrUnauthorized("authentication required")
 }
 
 func (s *Server) sessionCookie(raw string) *http.Cookie {
