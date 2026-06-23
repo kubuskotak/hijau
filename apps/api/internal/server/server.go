@@ -14,6 +14,7 @@ import (
 
 	"github.com/portierglobal/hijau/apps/api/internal/auth"
 	"github.com/portierglobal/hijau/apps/api/internal/config"
+	"github.com/portierglobal/hijau/apps/api/internal/crypto"
 	"github.com/portierglobal/hijau/apps/api/internal/storage"
 	"github.com/portierglobal/hijau/apps/api/internal/store"
 )
@@ -24,10 +25,12 @@ type Server struct {
 	cfg     config.Config
 	store   *store.Store
 	storage storage.Store
+	cipher  *crypto.Cipher // nil when HIJAU_ENCRYPTION_KEY is unset
 }
 
 func New(cfg config.Config, st *store.Store) *Server {
-	return &Server{cfg: cfg, store: st, storage: storage.NewFS(cfg.StorageDir)}
+	c, _ := crypto.New(cfg.EncryptionKey) // nil cipher => credential-backed MT disabled
+	return &Server{cfg: cfg, store: st, storage: storage.NewFS(cfg.StorageDir), cipher: c}
 }
 
 // Router builds the HTTP router with global middleware and all routes.
@@ -71,6 +74,9 @@ func (s *Server) Router() *espresso.Router {
 		Post("/api/v1/projects/{pid}/screenshots", espresso.Lungo(s.uploadScreenshot)).
 		Get("/api/v1/projects/{pid}/screenshots/{sid}/image", espresso.Doppio(s.serveScreenshotImage)).
 		Get("/api/v1/projects/{pid}/keys/{kid}/screenshots", espresso.Doppio(s.listKeyScreenshots)).
+		Get("/api/v1/projects/{pid}/mt/config", espresso.Doppio(s.getMTConfig)).
+		Put("/api/v1/projects/{pid}/mt/config", espresso.Lungo(s.configureMT)).
+		Post("/api/v1/projects/{pid}/keys/{kid}/mt/suggest", espresso.Lungo(s.suggestMT)).
 		Post("/api/v1/comments/{cid}/resolve", espresso.Lungo(s.resolveComment))
 }
 

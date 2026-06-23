@@ -28,6 +28,7 @@ type Querier interface {
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	DeleteExpiredSessions(ctx context.Context) error
 	DeleteLanguage(ctx context.Context, id string) error
+	DeleteMTConfig(ctx context.Context, projectID string) error
 	DeleteSession(ctx context.Context, tokenHash string) error
 	DeleteUserSessions(ctx context.Context, userID string) error
 	GetAPIKeyByHash(ctx context.Context, keyHash string) (ApiKey, error)
@@ -36,6 +37,7 @@ type Querier interface {
 	GetKey(ctx context.Context, id string) (TranslationKey, error)
 	GetLanguage(ctx context.Context, id string) (Language, error)
 	GetLanguageByTag(ctx context.Context, arg GetLanguageByTagParams) (Language, error)
+	GetMTConfig(ctx context.Context, projectID string) (MtConfig, error)
 	GetNamespaceByName(ctx context.Context, arg GetNamespaceByNameParams) (Namespace, error)
 	GetOrgMembership(ctx context.Context, arg GetOrgMembershipParams) (OrgMembership, error)
 	GetOrganization(ctx context.Context, id string) (Organization, error)
@@ -80,6 +82,7 @@ type Querier interface {
 	UpdateKey(ctx context.Context, arg UpdateKeyParams) (TranslationKey, error)
 	UpdateProject(ctx context.Context, arg UpdateProjectParams) (Project, error)
 	UpdateTranslation(ctx context.Context, arg UpdateTranslationParams) (Translation, error)
+	UpsertMTConfig(ctx context.Context, arg UpsertMTConfigParams) (MtConfig, error)
 }
 
 var _ Querier = (*Queries)(nil)

@@ -472,6 +472,17 @@ type Language struct {
 	CreatedAt   pgtype.Timestamptz `json:"createdAt"`
 }
 
+type MtConfig struct {
+	ID          string             `json:"id"`
+	ProjectID   string             `json:"projectId"`
+	Provider    string             `json:"provider"`
+	Enabled     bool               `json:"enabled"`
+	Model       string             `json:"model"`
+	Credentials []byte             `json:"credentials"`
+	CreatedAt   pgtype.Timestamptz `json:"createdAt"`
+	UpdatedAt   pgtype.Timestamptz `json:"updatedAt"`
+}
+
 type Namespace struct {
 	ID        string             `json:"id"`
 	ProjectID string             `json:"projectId"`
