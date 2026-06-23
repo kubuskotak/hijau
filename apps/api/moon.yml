@@ -1,0 +1,17 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+layer: 'application'
+language: 'go'
+
+# No moon toolchain is configured, so tasks run as system commands using the
+# ambient PATH (the mise-provided Go).
+tasks:
+  build:
+    command: 'go build ./...'
+  test:
+    command: 'go test ./...'
+  vet:
+    command: 'go vet ./...'
+  tidy:
+    command: 'go mod tidy'
+    options:
+      cache: false

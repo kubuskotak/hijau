@@ -1,0 +1,6 @@
+# Toolchain pins for the Hijau monorepo. Run `mise install` to provision.
+# goose is consumed as a Go library (embedded migrations), not a CLI tool.
+[tools]
+go = "1.26.0"
+bun = "1.3.13"
+sqlc = "1.30.0"

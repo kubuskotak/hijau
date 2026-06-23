@@ -1,0 +1,14 @@
+{
+  "name": "hijau",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Hijau — self-hosted, developer-first software localization platform",
+  "license": "MIT",
+  "workspaces": [
+    "apps/web",
+    "apps/mcp",
+    "packages/*"
+  ],
+  "packageManager": "bun@1.3.13"
+}

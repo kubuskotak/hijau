@@ -1,0 +1,41 @@
+# Go
+/apps/api/bin/
+/apps/cli/bin/
+*.exe
+*.test
+*.out
+
+# Node / Bun / SvelteKit
+node_modules/
+.svelte-kit/
+build/
+dist/
+*.tsbuildinfo
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# mise (local overrides)
+.mise.local.toml
+mise.local.toml
+
+# moon
+.moon/cache/
+.moon/docker/
+
+# Local data
+/data/
+/docker/pgdata/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# moon
+.moon/cache
+.moon/docker

@@ -1,0 +1,22 @@
+# Hijau local stack. For M1, only Postgres runs here; the `app` and `worker`
+# services (Go binary) are added once the server image exists.
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: hijau
+      POSTGRES_PASSWORD: hijau
+      POSTGRES_DB: hijau
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hijau -d hijau"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:
