@@ -56,6 +56,42 @@ func (s *Server) createEditorToken(ctx context.Context, path *extractor.Path[pro
 	return espresso.JSON[editorTokenDTO]{Data: editorTokenDTO{Token: gen.Raw, Prefix: gen.Prefix, Scopes: scopes}}, nil
 }
 
+type patReq struct {
+	Name   string   `json:"name"`
+	Scopes []string `json:"scopes"`
+}
+
+// createPAT mints a Personal Access Token for the signed-in user, for use by
+// the CLI (`hijau login`) and the MCP server (HIJAU_TOKEN). A PAT carries the
+// owner's full project authority unless narrowed by explicit scopes. Only a
+// real user session may mint one — not another token.
+func (s *Server) createPAT(ctx context.Context, body *espresso.JSON[patReq]) (espresso.JSON[editorTokenDTO], error) {
+	p := auth.FromContext(ctx)
+	if p.Kind != auth.UserPrincipal || p.UserID == "" {
+		return espresso.JSON[editorTokenDTO]{}, espresso.ErrUnauthorized("sign in to create a personal access token")
+	}
+	gen, err := auth.GenerateToken(auth.KindPAT)
+	if err != nil {
+		return espresso.JSON[editorTokenDTO]{}, espresso.ErrInternal("could not mint token")
+	}
+	name := body.Data.Name
+	if name == "" {
+		name = "Personal access token"
+	}
+	scopes := body.Data.Scopes
+	if scopes == nil {
+		scopes = []string{} // scopes is NOT NULL; empty = inherit the owner's full role
+	}
+	if _, err := s.store.CreateAPIKey(ctx, db.CreateAPIKeyParams{
+		ID: id.New(), Type: db.ApiKeyTypePat, Name: name,
+		KeyHash: gen.Hash, Prefix: gen.Prefix, Scopes: scopes,
+		OwnerUserID: pgText(p.UserID), ProjectID: pgtype.Text{}, ExpiresAt: pgtype.Timestamptz{},
+	}); err != nil {
+		return espresso.JSON[editorTokenDTO]{}, espresso.ErrInternal("could not create token")
+	}
+	return espresso.JSON[editorTokenDTO]{Data: editorTokenDTO{Token: gen.Raw, Prefix: gen.Prefix, Scopes: body.Data.Scopes}}, nil
+}
+
 type unlockReq struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`

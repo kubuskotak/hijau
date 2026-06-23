@@ -8,6 +8,7 @@
   "workspaces": [
     "apps/web",
     "apps/example",
+    "apps/mcp",
     "packages/*"
   ],
   "packageManager": "bun@1.3.13"
