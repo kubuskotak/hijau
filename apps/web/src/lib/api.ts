@@ -99,6 +99,15 @@ export interface Translation {
 	version: number;
 	updatedAt: string;
 }
+export interface EditorRow extends Key {
+	translations: Record<string, Translation>;
+}
+export interface EditorFeed {
+	keys: EditorRow[];
+	total: number;
+}
+
+type KeyQuery = { namespaceId?: string; search?: string; limit?: number; offset?: number };
 
 export const api = {
 	// auth
@@ -132,16 +141,17 @@ export const api = {
 		req<Namespace>('POST', `/projects/${pid}/namespaces`, { name }),
 
 	// keys
-	listKeys: (
-		pid: string,
-		q?: { namespaceId?: string; search?: string; limit?: number; offset?: number }
-	) => req<Key[]>('GET', `/projects/${pid}/keys${qs(q)}`),
+	listKeys: (pid: string, q?: KeyQuery) => req<Key[]>('GET', `/projects/${pid}/keys${qs(q)}`),
 	createKey: (
 		pid: string,
 		b: { name: string; namespace?: string; description?: string; isPlural?: boolean }
 	) => req<Key>('POST', `/projects/${pid}/keys`, b),
 	deleteKey: (pid: string, kid: string) =>
 		req<{ ok: boolean }>('DELETE', `/projects/${pid}/keys/${kid}`),
+
+	// editor feed: keys + their translations across languages
+	editorFeed: (pid: string, q?: KeyQuery) =>
+		req<EditorFeed>('GET', `/projects/${pid}/editor${qs(q)}`),
 
 	// translations
 	listKeyTranslations: (pid: string, kid: string) =>

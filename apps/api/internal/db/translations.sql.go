@@ -330,6 +330,43 @@ func (q *Queries) ListTranslationsForKey(ctx context.Context, keyID string) ([]T
 	return items, nil
 }
 
+const listTranslationsForKeys = `-- name: ListTranslationsForKeys :many
+SELECT id, key_id, language_id, text, state, origin, is_machine, sub_id, version, updated_by, created_at, updated_at FROM translations WHERE key_id = ANY($1::text[])
+`
+
+func (q *Queries) ListTranslationsForKeys(ctx context.Context, dollar_1 []string) ([]Translation, error) {
+	rows, err := q.db.Query(ctx, listTranslationsForKeys, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Translation{}
+	for rows.Next() {
+		var i Translation
+		if err := rows.Scan(
+			&i.ID,
+			&i.KeyID,
+			&i.LanguageID,
+			&i.Text,
+			&i.State,
+			&i.Origin,
+			&i.IsMachine,
+			&i.SubID,
+			&i.Version,
+			&i.UpdatedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markSiblingsOutdated = `-- name: MarkSiblingsOutdated :many
 UPDATE translations
 SET state = 'outdated', version = version + 1, updated_at = now()

@@ -22,6 +22,9 @@ RETURNING *;
 -- name: ListTranslationsForKey :many
 SELECT * FROM translations WHERE key_id = $1;
 
+-- name: ListTranslationsForKeys :many
+SELECT * FROM translations WHERE key_id = ANY($1::text[]);
+
 -- name: MarkSiblingsOutdated :many
 UPDATE translations
 SET state = 'outdated', version = version + 1, updated_at = now()

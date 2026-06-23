@@ -56,6 +56,7 @@ type Querier interface {
 	ListProjectMembers(ctx context.Context, projectID string) ([]ListProjectMembersRow, error)
 	ListProjectsForUser(ctx context.Context, userID string) ([]Project, error)
 	ListTranslationsForKey(ctx context.Context, keyID string) ([]Translation, error)
+	ListTranslationsForKeys(ctx context.Context, dollar_1 []string) ([]Translation, error)
 	ListUserOrganizations(ctx context.Context, userID string) ([]Organization, error)
 	MarkSiblingsOutdated(ctx context.Context, arg MarkSiblingsOutdatedParams) ([]Translation, error)
 	RevokeAPIKey(ctx context.Context, id string) error
