@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/suryakencana007/espresso/v2"
@@ -87,4 +88,66 @@ func (s *Server) editorFeed(ctx context.Context, path *extractor.Path[projectPat
 		rows = append(rows, editorRowDTO{keyDTO: toKeyDTO(k), Translations: tr})
 	}
 	return espresso.JSON[editorFeedDTO]{Data: editorFeedDTO{Keys: rows, Total: total}}, nil
+}
+
+type subIDPath struct {
+	PID string `path:"pid"`
+	N   string `path:"n"`
+}
+
+// editContextDTO is everything the in-context overlay editor needs once it has
+// decoded a marker: the translation, its key, the language, and the source
+// (base-language) text shown for reference.
+type editContextDTO struct {
+	Translation translationDTO `json:"translation"`
+	Key         keyDTO         `json:"key"`
+	Language    languageDTO    `json:"language"`
+	SourceText  string         `json:"sourceText"`
+}
+
+// resolveBySubID maps a marker-decoded sub_id back to its full edit context.
+// It is scoped to the project so an editor token for project A can't read
+// project B's strings by guessing sub_ids (sub_id is globally unique, so the
+// project check is the boundary).
+func (s *Server) resolveBySubID(ctx context.Context, path *extractor.Path[subIDPath]) (espresso.JSON[editContextDTO], error) {
+	pid := path.Data.PID
+	if err := authErr(auth.Authorize(ctx, s.store, auth.PermTranslationsRead, auth.Check{ProjectID: pid})); err != nil {
+		return espresso.JSON[editContextDTO]{}, err
+	}
+	n, err := strconv.ParseInt(path.Data.N, 10, 64)
+	if err != nil || n < 0 {
+		return espresso.JSON[editContextDTO]{}, espresso.ErrBadRequest("sub id must be a non-negative integer")
+	}
+	tr, err := s.store.GetTranslationBySubID(ctx, pgtype.Int8{Int64: n, Valid: true})
+	if err != nil {
+		return espresso.JSON[editContextDTO]{}, espresso.ErrNotFound("translation not found")
+	}
+	key, err := s.store.GetKey(ctx, tr.KeyID)
+	if err != nil || key.ProjectID != pid {
+		return espresso.JSON[editContextDTO]{}, espresso.ErrNotFound("translation not found")
+	}
+	lang, err := s.store.GetLanguage(ctx, tr.LanguageID)
+	if err != nil {
+		return espresso.JSON[editContextDTO]{}, espresso.ErrInternal("language lookup failed")
+	}
+
+	sourceText := ""
+	if proj, err := s.store.GetProject(ctx, pid); err == nil && proj.BaseLanguageID.String != "" {
+		baseID := proj.BaseLanguageID.String
+		if trs, err := s.store.ListTranslationsForKey(ctx, key.ID); err == nil {
+			for _, t := range trs {
+				if t.LanguageID == baseID {
+					sourceText = t.Text.String
+					break
+				}
+			}
+		}
+	}
+
+	return espresso.JSON[editContextDTO]{Data: editContextDTO{
+		Translation: toTranslationDTO(tr),
+		Key:         toKeyDTO(key),
+		Language:    toLanguageDTO(lang),
+		SourceText:  sourceText,
+	}}, nil
 }

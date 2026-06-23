@@ -53,6 +53,9 @@ func (s *Server) Router() *espresso.Router {
 		Get("/api/v1/projects/{pid}/namespaces", espresso.Doppio(s.listNamespaces)).
 		Post("/api/v1/projects/{pid}/namespaces", espresso.Lungo(s.createNamespace)).
 		Get("/api/v1/projects/{pid}/editor", espresso.Lungo(s.editorFeed)).
+		Get("/api/v1/projects/{pid}/translations/by-subid/{n}", espresso.Doppio(s.resolveBySubID)).
+		Post("/api/v1/projects/{pid}/editor/token", espresso.Lungo(s.createEditorToken)).
+		Post("/api/v1/projects/{pid}/editor/unlock", espresso.Lungo(s.unlockEditor)).
 		Get("/api/v1/projects/{pid}/keys", espresso.Lungo(s.listKeys)).
 		Post("/api/v1/projects/{pid}/keys", espresso.Lungo(s.createKey)).
 		Delete("/api/v1/projects/{pid}/keys/{kid}", espresso.Doppio(s.deleteKey)).

@@ -93,15 +93,24 @@ func Authorize(ctx context.Context, q AuthzQuerier, perm Perm, check Check) erro
 
 	switch p.Kind {
 	case APIKeyPrincipal:
-		if p.APIKeyType == db.ApiKeyTypeProject || p.APIKeyType == db.ApiKeyTypeEditor {
-			// Project/editor keys derive authority purely from their scopes,
-			// constrained to their single project. No scopes => can't act.
+		isProjectKey := p.APIKeyType == db.ApiKeyTypeProject || p.APIKeyType == db.ApiKeyTypeEditor
+		if isProjectKey && p.UserID == "" {
+			// Unattended project/editor keys (e.g. a read-only in-context editor
+			// token shipped in a browser bundle) derive authority purely from
+			// their scopes, constrained to their single project. No scopes => no
+			// authority. This is why a plain editor token can read but not write.
 			if check.ProjectID == "" || check.ProjectID != p.ProjectID || len(p.Scopes) == 0 {
 				return ErrForbidden
 			}
 			return nil // perm already verified to be in scopes above
 		}
-		// PAT: authority comes from the owner's project role (then scope-narrowed).
+		// User-bound keys — PATs and unlocked editor tokens — authorize as the
+		// owner: their project role (scope-narrowed above, and language-scoped in
+		// authorizeUser), so an unlocked token can never exceed the person behind
+		// it. A project-bound key is also pinned to its own project.
+		if p.ProjectID != "" && check.ProjectID != "" && check.ProjectID != p.ProjectID {
+			return ErrForbidden
+		}
 		return authorizeUser(ctx, q, p.UserID, perm, check)
 	case UserPrincipal:
 		return authorizeUser(ctx, q, p.UserID, perm, check)

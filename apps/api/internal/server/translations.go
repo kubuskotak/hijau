@@ -51,6 +51,11 @@ func toTranslationDTO(t db.Translation) translationDTO {
 
 func principalActorKind(p auth.Principal) db.AuthorKind {
 	if p.Kind == auth.APIKeyPrincipal {
+		// An unlocked in-context editor token is bound to a real person, so its
+		// edits are attributed to that user — not to an opaque "api_key".
+		if p.APIKeyType == db.ApiKeyTypeEditor && p.UserID != "" {
+			return db.AuthorKindUser
+		}
 		return db.AuthorKindApiKey
 	}
 	return db.AuthorKindUser
