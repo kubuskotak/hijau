@@ -11,27 +11,33 @@ import { enableInContext } from '@hijau/incontext';
 // In a real app these come from `hijau pull --with-ids` at build time. The
 // `subId` is the translation's DB id that the marker codec encodes.
 const records: TranslationRecord[] = [
-	{ subId: 101, key: 'nav.brand', text: 'Verdant Market' },
-	{ subId: 102, key: 'nav.home', text: 'Home' },
-	{ subId: 103, key: 'nav.shop', text: 'Shop' },
-	{ subId: 104, key: 'nav.cart', text: 'Cart' },
-	{ subId: 105, key: 'hero.title', text: 'Fresh groceries, delivered in 30 minutes' },
-	{ subId: 106, key: 'hero.subtitle', text: 'Locally sourced, always in season.' },
-	{ subId: 107, key: 'hero.cta', text: 'Start shopping' },
-	{ subId: 108, key: 'feature.delivery.title', text: 'Free delivery' },
-	{ subId: 109, key: 'feature.delivery.body', text: 'On every order over $35.' },
-	{ subId: 110, key: 'feature.window.title', text: 'Your window' },
-	{ subId: 111, key: 'feature.window.body', text: 'Pick a delivery time that suits you.' },
-	{ subId: 112, key: 'feature.guarantee.title', text: 'Happiness guarantee' },
-	{ subId: 113, key: 'feature.guarantee.body', text: "Not happy? We'll make it right." },
-	{ subId: 114, key: 'cart.empty', text: 'Your cart is empty.' }
+	{ subId: 23, key: 'nav.brand', text: 'Verdant Market' },
+	{ subId: 26, key: 'nav.home', text: 'Home' },
+	{ subId: 29, key: 'nav.shop', text: 'Shop' },
+	{ subId: 32, key: 'nav.cart', text: 'Cart' },
+	{ subId: 35, key: 'hero.title', text: 'Fresh groceries, delivered in 30 minutes' },
+	{ subId: 38, key: 'hero.subtitle', text: 'Locally sourced, always in season.' },
+	{ subId: 41, key: 'hero.cta', text: 'Start shopping' },
+	{ subId: 44, key: 'feature.delivery.title', text: 'Free delivery' },
+	{ subId: 47, key: 'feature.delivery.body', text: 'On every order over $35.' },
+	{ subId: 50, key: 'feature.window.title', text: 'Your window' },
+	{ subId: 53, key: 'feature.window.body', text: 'Pick a delivery time that suits you.' },
+	{ subId: 56, key: 'feature.guarantee.title', text: 'Happiness guarantee' },
+	{ subId: 59, key: 'feature.guarantee.body', text: "Not happy? We'll make it right." },
+	{ subId: 62, key: 'cart.empty', text: 'Your cart is empty.' }
 ];
 
 // Flip to a live Hijau instance by filling these in. `token` is a read-only
 // editor token (POST /projects/:id/editor/token). With the vite proxy,
 // '/api/v1' reaches :8080. Saving then prompts for sign-in (unlock) so edits
 // persist to the server, attributed to the real person.
-const LIVE: { apiUrl?: string; projectId?: string; token?: string } = {};
+// Seeded demo project on the local instance. Sign in to save with
+// demo@hijau.dev / hijaudemo123.
+const LIVE: { apiUrl?: string; projectId?: string; token?: string } = {
+	apiUrl: '/api/v1',
+	projectId: '01KVV1PPP4MV5MS2P6HE01K7CM',
+	token: 'hj_edit_9RO8F0LMO_9sMVjEoIHyscmHMf7JkSga'
+};
 
 const hijau = createHijau({
 	language: 'en',
