@@ -145,6 +145,7 @@ func (s *Server) unlockEditor(ctx context.Context, path *extractor.Path[projectP
 	scopes := []string{
 		string(auth.PermProjectRead), string(auth.PermTranslationsRead),
 		string(auth.PermTranslationsWrite), string(auth.PermComment),
+		string(auth.PermScreenshotWrite),
 	}
 	exp := time.Now().Add(editorUnlockTTL)
 	if _, err := s.store.CreateAPIKey(ctx, db.CreateAPIKeyParams{

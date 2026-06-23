@@ -60,6 +60,7 @@ button:disabled { opacity: 0.6; cursor: default; }
 export interface OverlayHandlers {
 	onSave: (text: string) => void | Promise<void>;
 	onUnlock?: (email: string, password: string) => void | Promise<void>;
+	onCapture?: () => void | Promise<void>;
 	onCancel: () => void;
 }
 
@@ -83,6 +84,7 @@ export class Overlay {
 	private passwordEl!: HTMLInputElement;
 	private errEl!: HTMLDivElement;
 	private saveBtn!: HTMLButtonElement;
+	private captureBtn!: HTMLButtonElement;
 	private handlers: OverlayHandlers | null = null;
 	private mode: 'edit' | 'unlock' = 'edit';
 
@@ -124,6 +126,7 @@ export class Overlay {
 				</div>
 				<div class="foot">
 					<span class="err"></span>
+					<button class="ghost" data-act="capture" hidden>📷 Screenshot</button>
 					<button class="ghost" data-act="cancel">Cancel</button>
 					<button class="primary" data-act="save">Save</button>
 				</div>
@@ -140,12 +143,14 @@ export class Overlay {
 		this.passwordEl = inputs[1] as HTMLInputElement;
 		this.errEl = this.q('.err');
 		this.saveBtn = this.q('button[data-act="save"]');
+		this.captureBtn = this.q('button[data-act="capture"]');
 
 		this.backdrop.addEventListener('click', (e) => {
 			if (e.target === this.backdrop) this.handlers?.onCancel();
 		});
 		this.q('button[data-act="cancel"]').addEventListener('click', () => this.handlers?.onCancel());
 		this.saveBtn.addEventListener('click', () => void this.onPrimary());
+		this.captureBtn.addEventListener('click', () => void this.onCapture());
 		const submitOnCtrlEnter = (e: KeyboardEvent) => {
 			if (e.key === 'Escape') this.handlers?.onCancel();
 			if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) void this.onPrimary();
@@ -192,6 +197,8 @@ export class Overlay {
 		this.setError('');
 		this.setBusy(false);
 		this.setMode('edit');
+		this.captureBtn.hidden = !handlers.onCapture;
+		this.captureBtn.textContent = '📷 Screenshot';
 		this.highlight(null);
 		this.backdrop.style.display = 'flex';
 		this.textarea.focus();
@@ -222,6 +229,29 @@ export class Overlay {
 		this.saveBtn.disabled = busy;
 		if (busy) this.saveBtn.textContent = this.mode === 'unlock' ? 'Unlocking…' : 'Saving…';
 		else this.saveBtn.textContent = this.mode === 'unlock' ? 'Unlock & save' : 'Save';
+	}
+
+	private async onCapture(): Promise<void> {
+		if (!this.handlers?.onCapture) return;
+		this.setError('');
+		this.saveBtn.disabled = true;
+		this.captureBtn.disabled = true;
+		this.captureBtn.textContent = 'Capturing…';
+		try {
+			await this.handlers.onCapture();
+			this.captureBtn.textContent = 'Saved ✓';
+		} catch (e) {
+			const err = e as UnlockableError;
+			if (err.needsUnlock && this.handlers.onUnlock) {
+				this.setMode('unlock');
+				this.emailEl.focus();
+			}
+			this.setError(err.message || 'Capture failed');
+			this.captureBtn.textContent = '📷 Screenshot';
+		} finally {
+			this.saveBtn.disabled = false;
+			this.captureBtn.disabled = false;
+		}
 	}
 
 	private async onPrimary(): Promise<void> {

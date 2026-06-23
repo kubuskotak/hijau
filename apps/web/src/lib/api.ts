@@ -127,6 +127,24 @@ export interface Comment {
 	createdAt: string;
 }
 
+export interface ScreenshotRegion {
+	id: string;
+	keyId: string;
+	x: number;
+	y: number;
+	w: number;
+	h: number;
+}
+export interface Screenshot {
+	id: string;
+	name: string;
+	width: number;
+	height: number;
+	imageUrl: string;
+	createdAt: string;
+	regions: ScreenshotRegion[];
+}
+
 type KeyQuery = { namespaceId?: string; search?: string; limit?: number; offset?: number };
 
 export const api = {
@@ -194,5 +212,9 @@ export const api = {
 			parentId
 		}),
 	resolveComment: (cid: string, resolved: boolean) =>
-		req<{ ok: boolean }>('POST', `/comments/${cid}/resolve`, { resolved })
+		req<{ ok: boolean }>('POST', `/comments/${cid}/resolve`, { resolved }),
+
+	// screenshots where a key appears (with regions highlighting it)
+	listKeyScreenshots: (pid: string, kid: string) =>
+		req<Screenshot[]>('GET', `/projects/${pid}/keys/${kid}/screenshots`)
 };

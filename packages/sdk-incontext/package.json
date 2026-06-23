@@ -18,6 +18,7 @@
 	},
 	"dependencies": {
 		"@hijau/i18n": "workspace:*",
-		"@hijau/web": "workspace:*"
+		"@hijau/web": "workspace:*",
+		"html-to-image": "^1.11.13"
 	}
 }

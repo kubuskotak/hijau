@@ -523,6 +523,29 @@ type ProjectMemberLanguage struct {
 	LanguageID string `json:"languageId"`
 }
 
+type Screenshot struct {
+	ID         string             `json:"id"`
+	ProjectID  string             `json:"projectId"`
+	StorageKey string             `json:"storageKey"`
+	Name       string             `json:"name"`
+	Width      int32              `json:"width"`
+	Height     int32              `json:"height"`
+	CreatedBy  pgtype.Text        `json:"createdBy"`
+	CreatedAt  pgtype.Timestamptz `json:"createdAt"`
+}
+
+type ScreenshotRegion struct {
+	ID            string             `json:"id"`
+	ScreenshotID  string             `json:"screenshotId"`
+	KeyID         string             `json:"keyId"`
+	TranslationID pgtype.Text        `json:"translationId"`
+	X             int32              `json:"x"`
+	Y             int32              `json:"y"`
+	W             int32              `json:"w"`
+	H             int32              `json:"h"`
+	CreatedAt     pgtype.Timestamptz `json:"createdAt"`
+}
+
 type Session struct {
 	ID        string             `json:"id"`
 	UserID    string             `json:"userId"`

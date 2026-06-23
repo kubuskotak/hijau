@@ -1,5 +1,12 @@
 <script lang="ts">
-	import { api, type EditorRow, type Language, type HistoryEntry, type Comment } from '$lib/api';
+	import {
+		api,
+		type EditorRow,
+		type Language,
+		type HistoryEntry,
+		type Comment,
+		type Screenshot
+	} from '$lib/api';
 	import {Button} from '$lib/components/ui/button/index';
 	import {Textarea} from '$lib/components/ui/textarea/index';
 	import {Badge} from '$lib/components/ui/badge/index';
@@ -19,9 +26,10 @@
 		onclose: () => void;
 	} = $props();
 
-	let tab = $state<'history' | 'comments'>('history');
+	let tab = $state<'history' | 'comments' | 'screenshots'>('history');
 	let history = $state<HistoryEntry[]>([]);
 	let comments = $state<Comment[]>([]);
+	let screenshots = $state<Screenshot[]>([]);
 	let loading = $state(true);
 	let err = $state('');
 	let draft = $state('');
@@ -31,9 +39,10 @@
 		loading = true;
 		err = '';
 		try {
-			[history, comments] = await Promise.all([
+			[history, comments, screenshots] = await Promise.all([
 				api.translationHistory(pid, kid, langTag),
-				api.listComments(pid, kid, langTag)
+				api.listComments(pid, kid, langTag),
+				api.listKeyScreenshots(pid, kid)
 			]);
 		} catch (e) {
 			err = (e as Error).message;
@@ -116,7 +125,7 @@
 	</div>
 
 	<nav class="flex gap-1 border-b px-2">
-		{#each ['history', 'comments'] as const as t (t)}
+		{#each ['history', 'comments', 'screenshots'] as const as t (t)}
 			<button
 				class={'border-b-2 px-3 py-2 text-sm capitalize ' +
 					(tab === t
@@ -126,6 +135,7 @@
 			>
 				{t}
 				{#if t === 'comments' && comments.length}({comments.length}){/if}
+				{#if t === 'screenshots' && screenshots.length}({screenshots.length}){/if}
 			</button>
 		{/each}
 	</nav>
@@ -164,7 +174,7 @@
 					{/each}
 				</ol>
 			{/if}
-		{:else}
+		{:else if tab === 'comments'}
 			<div class="space-y-3">
 				{#if comments.length === 0}
 					<p class="text-sm text-muted-foreground">No comments yet.</p>
@@ -194,6 +204,34 @@
 					</Button>
 				</form>
 			</div>
+		{:else}
+			{#if screenshots.length === 0}
+				<p class="text-sm text-muted-foreground">
+					No screenshots yet. Capture one from the in-context editor.
+				</p>
+			{:else}
+				<div class="space-y-4">
+					{#each screenshots as s (s.id)}
+						<figure>
+							<div class="relative overflow-hidden rounded border">
+								<img src={s.imageUrl} alt={s.name} class="block w-full" />
+								{#each s.regions as r (r.id)}
+									{#if s.width > 0 && s.height > 0}
+										<div
+											class="absolute border-2 border-emerald-500 bg-emerald-500/10"
+											style="left:{(r.x / s.width) * 100}%;top:{(r.y / s.height) *
+												100}%;width:{(r.w / s.width) * 100}%;height:{(r.h / s.height) * 100}%"
+										></div>
+									{/if}
+								{/each}
+							</div>
+							{#if s.name}
+								<figcaption class="mt-1 truncate text-xs text-muted-foreground">{s.name}</figcaption>
+							{/if}
+						</figure>
+					{/each}
+				</div>
+			{/if}
 		{/if}
 	</div>
 </aside>

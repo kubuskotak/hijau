@@ -142,15 +142,56 @@ export function enableInContext(hijau: Hijau, options: InContextOptions = {}): (
 		options.onSave?.(ctx, text);
 	}
 
-	async function openFor(subId: number): Promise<void> {
+	// Capture the page to a PNG and upload it, tagging a region for the element
+	// being edited so translators see the string in context.
+	async function capture(subId: number, el: Element, name: string): Promise<void> {
+		if (!apiUrl || !projectId) throw new Error('Screenshots need a live connection (set apiUrl + projectId)');
+		if (!writeToken) throw needsUnlock('Save once to sign in, then capture');
+		const { toPng } = await import('html-to-image');
+		const dataUrl = await toPng(document.body, {
+			cacheBust: true,
+			// keep our own overlay out of the shot
+			filter: (node: HTMLElement) => !node.hasAttribute?.('data-hijau-overlay')
+		});
+		const r = el.getBoundingClientRect();
+		const res = await fetch(`${apiUrl}/projects/${projectId}/screenshots`, {
+			method: 'POST',
+			credentials: 'include',
+			headers: { Authorization: `Bearer ${writeToken}`, 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				image: dataUrl,
+				name,
+				width: document.body.scrollWidth,
+				height: document.body.scrollHeight,
+				regions: [
+					{
+						subId,
+						x: Math.round(r.left + window.scrollX),
+						y: Math.round(r.top + window.scrollY),
+						w: Math.round(r.width),
+						h: Math.round(r.height)
+					}
+				]
+			})
+		});
+		if (res.status === 401 || res.status === 403) {
+			writeToken = null;
+			throw needsUnlock('Session expired — save again to sign in');
+		}
+		if (!res.ok) throw new Error(`Screenshot upload failed (HTTP ${res.status})`);
+	}
+
+	async function openFor(subId: number, el: Element): Promise<void> {
 		try {
 			const ctx = await resolveContext(subId);
+			const live = Boolean(apiUrl && projectId);
 			overlay.openEditor(ctx, {
 				onSave: async (text) => {
 					await save(ctx, text);
 					overlay.closeEditor();
 				},
 				onUnlock: (email, password) => unlock(email, password),
+				onCapture: live ? () => capture(subId, el, ctx.key.name) : undefined,
 				onCancel: () => overlay.closeEditor()
 			});
 		} catch (e) {
@@ -203,7 +244,7 @@ export function enableInContext(hijau: Hijau, options: InContextOptions = {}): (
 		e.preventDefault();
 		e.stopPropagation();
 		setActive(false);
-		void openFor(hit.subId);
+		void openFor(hit.subId, hit.el);
 	};
 
 	const onScroll = () => {

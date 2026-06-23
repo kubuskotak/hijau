@@ -14,18 +14,20 @@ import (
 
 	"github.com/portierglobal/hijau/apps/api/internal/auth"
 	"github.com/portierglobal/hijau/apps/api/internal/config"
+	"github.com/portierglobal/hijau/apps/api/internal/storage"
 	"github.com/portierglobal/hijau/apps/api/internal/store"
 )
 
 const sessionTTL = 30 * 24 * time.Hour
 
 type Server struct {
-	cfg   config.Config
-	store *store.Store
+	cfg     config.Config
+	store   *store.Store
+	storage storage.Store
 }
 
 func New(cfg config.Config, st *store.Store) *Server {
-	return &Server{cfg: cfg, store: st}
+	return &Server{cfg: cfg, store: st, storage: storage.NewFS(cfg.StorageDir)}
 }
 
 // Router builds the HTTP router with global middleware and all routes.
@@ -66,6 +68,9 @@ func (s *Server) Router() *espresso.Router {
 		Get("/api/v1/projects/{pid}/keys/{kid}/translations/{lang}/history", espresso.Doppio(s.translationHistory)).
 		Get("/api/v1/projects/{pid}/keys/{kid}/translations/{lang}/comments", espresso.Doppio(s.listTranslationComments)).
 		Post("/api/v1/projects/{pid}/keys/{kid}/translations/{lang}/comments", espresso.Lungo(s.addTranslationComment)).
+		Post("/api/v1/projects/{pid}/screenshots", espresso.Lungo(s.uploadScreenshot)).
+		Get("/api/v1/projects/{pid}/screenshots/{sid}/image", espresso.Doppio(s.serveScreenshotImage)).
+		Get("/api/v1/projects/{pid}/keys/{kid}/screenshots", espresso.Doppio(s.listKeyScreenshots)).
 		Post("/api/v1/comments/{cid}/resolve", espresso.Lungo(s.resolveComment))
 }
 
