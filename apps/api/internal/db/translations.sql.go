@@ -293,6 +293,74 @@ func (q *Queries) ListProjectActivity(ctx context.Context, arg ListProjectActivi
 	return items, nil
 }
 
+const listTranslationHistory = `-- name: ListTranslationHistory :many
+SELECT h.id, h.translation_id, h.key_id, h.language_id, h.old_text, h.new_text,
+       h.old_state, h.new_state, h.origin, h.author_kind, h.author_id, h.api_key_id, h.created_at,
+       u.email AS author_email
+FROM translation_history h
+LEFT JOIN users u ON u.id = h.author_id
+WHERE h.translation_id = $1
+ORDER BY h.created_at DESC
+LIMIT $2
+`
+
+type ListTranslationHistoryParams struct {
+	TranslationID string `json:"translationId"`
+	Limit         int32  `json:"limit"`
+}
+
+type ListTranslationHistoryRow struct {
+	ID            string               `json:"id"`
+	TranslationID string               `json:"translationId"`
+	KeyID         string               `json:"keyId"`
+	LanguageID    string               `json:"languageId"`
+	OldText       pgtype.Text          `json:"oldText"`
+	NewText       pgtype.Text          `json:"newText"`
+	OldState      NullTranslationState `json:"oldState"`
+	NewState      NullTranslationState `json:"newState"`
+	Origin        TranslationOrigin    `json:"origin"`
+	AuthorKind    AuthorKind           `json:"authorKind"`
+	AuthorID      pgtype.Text          `json:"authorId"`
+	ApiKeyID      pgtype.Text          `json:"apiKeyId"`
+	CreatedAt     pgtype.Timestamptz   `json:"createdAt"`
+	AuthorEmail   pgtype.Text          `json:"authorEmail"`
+}
+
+func (q *Queries) ListTranslationHistory(ctx context.Context, arg ListTranslationHistoryParams) ([]ListTranslationHistoryRow, error) {
+	rows, err := q.db.Query(ctx, listTranslationHistory, arg.TranslationID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListTranslationHistoryRow{}
+	for rows.Next() {
+		var i ListTranslationHistoryRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TranslationID,
+			&i.KeyID,
+			&i.LanguageID,
+			&i.OldText,
+			&i.NewText,
+			&i.OldState,
+			&i.NewState,
+			&i.Origin,
+			&i.AuthorKind,
+			&i.AuthorID,
+			&i.ApiKeyID,
+			&i.CreatedAt,
+			&i.AuthorEmail,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTranslationsForKey = `-- name: ListTranslationsForKey :many
 SELECT id, key_id, language_id, text, state, origin, is_machine, sub_id, version, updated_by, created_at, updated_at FROM translations WHERE key_id = $1
 `

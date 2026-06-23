@@ -106,6 +106,26 @@ export interface EditorFeed {
 	keys: EditorRow[];
 	total: number;
 }
+export interface HistoryEntry {
+	id: string;
+	oldText: string;
+	newText: string;
+	oldState: string;
+	newState: string;
+	origin: string;
+	authorKind: string;
+	authorEmail: string;
+	createdAt: string;
+}
+export interface Comment {
+	id: string;
+	body: string;
+	parentId: string;
+	authorEmail: string;
+	authorName: string;
+	resolved: boolean;
+	createdAt: string;
+}
 
 type KeyQuery = { namespaceId?: string; search?: string; limit?: number; offset?: number };
 
@@ -161,5 +181,18 @@ export const api = {
 	transition: (pid: string, kid: string, lang: string, action: 'approve' | 'reject') =>
 		req<Translation>('POST', `/projects/${pid}/keys/${kid}/translations/${lang}/transition`, {
 			action
-		})
+		}),
+
+	// side panel: per-translation history & comments
+	translationHistory: (pid: string, kid: string, lang: string) =>
+		req<HistoryEntry[]>('GET', `/projects/${pid}/keys/${kid}/translations/${lang}/history`),
+	listComments: (pid: string, kid: string, lang: string) =>
+		req<Comment[]>('GET', `/projects/${pid}/keys/${kid}/translations/${lang}/comments`),
+	addComment: (pid: string, kid: string, lang: string, body: string, parentId?: string) =>
+		req<Comment>('POST', `/projects/${pid}/keys/${kid}/translations/${lang}/comments`, {
+			body,
+			parentId
+		}),
+	resolveComment: (cid: string, resolved: boolean) =>
+		req<{ ok: boolean }>('POST', `/comments/${cid}/resolve`, { resolved })
 };

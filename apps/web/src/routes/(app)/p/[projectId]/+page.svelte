@@ -5,6 +5,7 @@
 	import Input from '$lib/components/ui/input.svelte';
 	import Label from '$lib/components/ui/label.svelte';
 	import EditorCell from '$lib/components/editor-cell.svelte';
+	import SidePanel from '$lib/components/side-panel.svelte';
 
 	let { data } = $props();
 	const pid = $derived(data.project.id);
@@ -24,6 +25,7 @@
 	let kNamespace = $state('');
 	let kDesc = $state('');
 	let adding = $state(false);
+	let panel = $state<{ row: EditorRow; lang: Language } | null>(null);
 
 	async function loadFeed() {
 		loading = true;
@@ -145,6 +147,7 @@
 										tr={row.translations[l.id]}
 										isBase={l.id === baseId}
 										onsaved={(t, wasBase) => onCellSaved(i, l.id, t, wasBase)}
+										onopen={() => (panel = { row, lang: l })}
 									/>
 								{/if}
 							</td>
@@ -160,4 +163,14 @@
 	{:else if rows.length === 0}
 		<p class="text-sm text-muted-foreground">No keys yet. Add your first one.</p>
 	{/if}
+{/if}
+
+{#if panel}
+	<SidePanel
+		{pid}
+		keyRow={panel.row}
+		lang={panel.lang}
+		baseText={panel.row.translations[baseId]?.text ?? ''}
+		onclose={() => (panel = null)}
+	/>
 {/if}

@@ -58,7 +58,11 @@ func (s *Server) Router() *espresso.Router {
 		Delete("/api/v1/projects/{pid}/keys/{kid}", espresso.Doppio(s.deleteKey)).
 		Get("/api/v1/projects/{pid}/keys/{kid}/translations", espresso.Doppio(s.listKeyTranslations)).
 		Put("/api/v1/projects/{pid}/keys/{kid}/translations/{lang}", espresso.Lungo(s.setTranslation)).
-		Post("/api/v1/projects/{pid}/keys/{kid}/translations/{lang}/transition", espresso.Lungo(s.transitionTranslation))
+		Post("/api/v1/projects/{pid}/keys/{kid}/translations/{lang}/transition", espresso.Lungo(s.transitionTranslation)).
+		Get("/api/v1/projects/{pid}/keys/{kid}/translations/{lang}/history", espresso.Doppio(s.translationHistory)).
+		Get("/api/v1/projects/{pid}/keys/{kid}/translations/{lang}/comments", espresso.Doppio(s.listTranslationComments)).
+		Post("/api/v1/projects/{pid}/keys/{kid}/translations/{lang}/comments", espresso.Lungo(s.addTranslationComment)).
+		Post("/api/v1/comments/{cid}/resolve", espresso.Lungo(s.resolveComment))
 }
 
 // authErr maps an authorization result to the right HTTP error.

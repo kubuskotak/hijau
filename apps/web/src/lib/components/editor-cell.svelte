@@ -11,7 +11,8 @@
 		lang,
 		tr,
 		isBase,
-		onsaved
+		onsaved,
+		onopen
 	}: {
 		pid: string;
 		keyId: string;
@@ -19,6 +20,7 @@
 		tr: Translation;
 		isBase: boolean;
 		onsaved: (updated: Translation, wasBase: boolean) => void;
+		onopen?: () => void;
 	} = $props();
 
 	// Local editable copy; initialised from the prop (intentionally not tracked
@@ -89,6 +91,17 @@
 			<Button size="sm" variant="ghost" class="h-6 px-2 text-xs" onclick={approve} disabled={saving}>
 				Approve
 			</Button>
+		{/if}
+		{#if onopen}
+			<button
+				type="button"
+				class="ml-auto rounded px-1 text-muted-foreground hover:text-foreground"
+				onclick={() => onopen?.()}
+				title="History & comments"
+				aria-label="History & comments"
+			>
+				⋯
+			</button>
 		{/if}
 		{#if err}<span class="text-xs text-destructive">{err}</span>{/if}
 	</div>

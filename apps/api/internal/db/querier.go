@@ -13,6 +13,7 @@ import (
 type Querier interface {
 	CountKeys(ctx context.Context, projectID string) (int64, error)
 	CreateAPIKey(ctx context.Context, arg CreateAPIKeyParams) (ApiKey, error)
+	CreateComment(ctx context.Context, arg CreateCommentParams) (Comment, error)
 	CreateKey(ctx context.Context, arg CreateKeyParams) (TranslationKey, error)
 	CreateLanguage(ctx context.Context, arg CreateLanguageParams) (Language, error)
 	CreateNamespace(ctx context.Context, arg CreateNamespaceParams) (Namespace, error)
@@ -28,6 +29,8 @@ type Querier interface {
 	DeleteSession(ctx context.Context, tokenHash string) error
 	DeleteUserSessions(ctx context.Context, userID string) error
 	GetAPIKeyByHash(ctx context.Context, keyHash string) (ApiKey, error)
+	GetComment(ctx context.Context, id string) (Comment, error)
+	GetCommentProjectID(ctx context.Context, id string) (string, error)
 	GetKey(ctx context.Context, id string) (TranslationKey, error)
 	GetLanguage(ctx context.Context, id string) (Language, error)
 	GetLanguageByTag(ctx context.Context, arg GetLanguageByTagParams) (Language, error)
@@ -46,6 +49,7 @@ type Querier interface {
 	InsertActivity(ctx context.Context, arg InsertActivityParams) error
 	InsertTranslationHistory(ctx context.Context, arg InsertTranslationHistoryParams) error
 	ListAPIKeysByProject(ctx context.Context, projectID pgtype.Text) ([]ApiKey, error)
+	ListCommentsForTranslation(ctx context.Context, translationID pgtype.Text) ([]ListCommentsForTranslationRow, error)
 	ListKeyHistory(ctx context.Context, arg ListKeyHistoryParams) ([]TranslationHistory, error)
 	ListKeys(ctx context.Context, arg ListKeysParams) ([]TranslationKey, error)
 	ListLanguages(ctx context.Context, projectID string) ([]Language, error)
@@ -55,10 +59,12 @@ type Querier interface {
 	ListProjectMemberLanguageIDs(ctx context.Context, memberID string) ([]string, error)
 	ListProjectMembers(ctx context.Context, projectID string) ([]ListProjectMembersRow, error)
 	ListProjectsForUser(ctx context.Context, userID string) ([]Project, error)
+	ListTranslationHistory(ctx context.Context, arg ListTranslationHistoryParams) ([]ListTranslationHistoryRow, error)
 	ListTranslationsForKey(ctx context.Context, keyID string) ([]Translation, error)
 	ListTranslationsForKeys(ctx context.Context, dollar_1 []string) ([]Translation, error)
 	ListUserOrganizations(ctx context.Context, userID string) ([]Organization, error)
 	MarkSiblingsOutdated(ctx context.Context, arg MarkSiblingsOutdatedParams) ([]Translation, error)
+	ResolveComment(ctx context.Context, arg ResolveCommentParams) (Comment, error)
 	RevokeAPIKey(ctx context.Context, id string) error
 	SetKeySourceHash(ctx context.Context, arg SetKeySourceHashParams) error
 	SetProjectBaseLanguage(ctx context.Context, arg SetProjectBaseLanguageParams) error
@@ -66,6 +72,7 @@ type Querier interface {
 	SoftDeleteKey(ctx context.Context, id string) error
 	SoftDeleteProject(ctx context.Context, id string) error
 	TouchAPIKey(ctx context.Context, id string) error
+	UnresolveComment(ctx context.Context, id string) (Comment, error)
 	UpdateKey(ctx context.Context, arg UpdateKeyParams) (TranslationKey, error)
 	UpdateProject(ctx context.Context, arg UpdateProjectParams) (Project, error)
 	UpdateTranslation(ctx context.Context, arg UpdateTranslationParams) (Translation, error)

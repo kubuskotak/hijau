@@ -43,5 +43,15 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
 -- name: ListKeyHistory :many
 SELECT * FROM translation_history WHERE key_id = $1 ORDER BY created_at DESC LIMIT $2;
 
+-- name: ListTranslationHistory :many
+SELECT h.id, h.translation_id, h.key_id, h.language_id, h.old_text, h.new_text,
+       h.old_state, h.new_state, h.origin, h.author_kind, h.author_id, h.api_key_id, h.created_at,
+       u.email AS author_email
+FROM translation_history h
+LEFT JOIN users u ON u.id = h.author_id
+WHERE h.translation_id = $1
+ORDER BY h.created_at DESC
+LIMIT $2;
+
 -- name: ListProjectActivity :many
 SELECT * FROM activity WHERE project_id = $1 ORDER BY created_at DESC LIMIT $2;
