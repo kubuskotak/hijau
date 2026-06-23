@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { api, type EditorRow, type Language, type HistoryEntry, type Comment } from '$lib/api';
-	import Button from '$lib/components/ui/button.svelte';
-	import Textarea from '$lib/components/ui/textarea.svelte';
-	import Badge from '$lib/components/ui/badge.svelte';
-	import type { BadgeVariant } from '$lib/components/ui/badge.svelte';
+	import {Button} from '$lib/components/ui/button/index';
+	import {Textarea} from '$lib/components/ui/textarea/index';
+	import {Badge} from '$lib/components/ui/badge/index';
+	import { stateBadge } from '$lib/translation-state';
 
 	let {
 		pid,
@@ -142,8 +142,11 @@
 					{#each history as h (h.id)}
 						<li class="border-l-2 pl-3 text-sm">
 							<div class="flex items-center gap-2">
-								{#if h.newState}<Badge variant={h.newState as BadgeVariant}>
-										{h.newState.replace('_', ' ')}
+								{#if h.newState}{@const sb = stateBadge(h.newState)}<Badge
+										variant={sb.variant}
+										class={sb.class}
+									>
+										{sb.label}
 									</Badge>{/if}
 								<span class="text-xs text-muted-foreground">{fmt(h.createdAt)}</span>
 							</div>

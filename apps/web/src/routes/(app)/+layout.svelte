@@ -2,7 +2,7 @@
 	import { session } from '$lib/session.svelte';
 	import { goto } from '$app/navigation';
 	import { api } from '$lib/api';
-	import Button from '$lib/components/ui/button.svelte';
+	import { Button } from '$lib/components/ui/button/index';
 
 	let { children } = $props();
 

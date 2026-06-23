@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api, type EditorRow, type Language, type Translation } from '$lib/api';
-	import Button, { buttonVariants } from '$lib/components/ui/button.svelte';
-	import Input from '$lib/components/ui/input.svelte';
-	import Label from '$lib/components/ui/label.svelte';
+	import { Button, buttonVariants } from '$lib/components/ui/button/index';
+	import {Input} from '$lib/components/ui/input/index';
+	import {Label} from '$lib/components/ui/label/index';
 	import EditorCell from '$lib/components/editor-cell.svelte';
 	import SidePanel from '$lib/components/side-panel.svelte';
 

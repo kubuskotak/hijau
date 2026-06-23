@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import { api, type Language } from '$lib/api';
-	import Button from '$lib/components/ui/button.svelte';
-	import Input from '$lib/components/ui/input.svelte';
-	import Label from '$lib/components/ui/label.svelte';
-	import Badge from '$lib/components/ui/badge.svelte';
+	import { Button }  from '$lib/components/ui/button/index';
+	import { Input } from '$lib/components/ui/input/index';
+	import { Label } from '$lib/components/ui/label/index';
+	import { Badge } from '$lib/components/ui/badge/index';
 
 	let { data } = $props();
 	const pid = $derived(data.project.id);

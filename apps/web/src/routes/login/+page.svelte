@@ -2,9 +2,9 @@
 	import { api, ApiError } from '$lib/api';
 	import { session } from '$lib/session.svelte';
 	import { goto } from '$app/navigation';
-	import Button from '$lib/components/ui/button.svelte';
-	import Input from '$lib/components/ui/input.svelte';
-	import Label from '$lib/components/ui/label.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import { Input} from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
 
 	let email = $state('');
 	let password = $state('');

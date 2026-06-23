@@ -1,9 +1,10 @@
 <script lang="ts">
+	import { type Language, type Translation, api } from '$lib/api';
 	import { untrack } from 'svelte';
-	import { api, type Language, type Translation } from '$lib/api';
-	import Badge from '$lib/components/ui/badge.svelte';
-	import Textarea from '$lib/components/ui/textarea.svelte';
-	import Button from '$lib/components/ui/button.svelte';
+	import { Badge } from '$lib/components/ui/badge/index';
+	import { Textarea } from '$lib/components/ui/textarea/index';
+	import { Button }  from '$lib/components/ui/button/index';
+	import { stateBadge } from '$lib/translation-state';
 
 	let {
 		pid,
@@ -73,6 +74,7 @@
 			tr.text.trim() !== '' &&
 			(tr.state === 'translated' || tr.state === 'outdated' || tr.state === 'needs_work')
 	);
+	const sb = $derived(stateBadge(tr.state));
 </script>
 
 <div class="space-y-1">
@@ -86,7 +88,7 @@
 		placeholder="—"
 	/>
 	<div class="flex items-center gap-2">
-		<Badge variant={tr.state}>{tr.state.replace('_', ' ')}</Badge>
+		<Badge variant={sb.variant} class={sb.class}>{sb.label}</Badge>
 		{#if canApprove}
 			<Button size="sm" variant="ghost" class="h-6 px-2 text-xs" onclick={approve} disabled={saving}>
 				Approve

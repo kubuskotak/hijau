@@ -1,7 +1,8 @@
 # Toolchain pins for the Hijau monorepo. Run `mise install` to provision.
 # goose is consumed as a Go library (embedded migrations), not a CLI tool.
+# Bun is the sole JS/TS runtime + package manager + script runner — no Node.
+# (Verified: `bun run check`/`build`/`dev` drive vite + sveltekit + svelte-check.)
 [tools]
 go = "1.26.0"
 bun = "1.3.13"
-node = "22"
 sqlc = "1.30.0"
