@@ -83,6 +83,9 @@ func buildPrompt(req Request) string {
 			fmt.Fprintf(&b, "Glossary: translate %q as %q.\n", g.Term, g.Translation)
 		}
 	}
+	if req.RepairNote != "" {
+		fmt.Fprintf(&b, "\nIMPORTANT: %s\n", req.RepairNote)
+	}
 	b.WriteString("\nText to translate:\n")
 	b.WriteString(req.Source)
 	return b.String()

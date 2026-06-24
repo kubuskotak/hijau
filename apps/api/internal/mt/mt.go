@@ -6,6 +6,7 @@ package mt
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/portierglobal/hijau/apps/api/internal/i18n"
 )
@@ -26,6 +27,7 @@ type Request struct {
 	Description  string // optional translator-facing context
 	Placeholders []string // ICU placeholders to preserve (set by GuardedTranslate)
 	Glossary     []GlossaryHint
+	RepairNote   string // set by GuardedTranslate on a retry to correct the prior attempt
 }
 
 type Result struct {
@@ -64,7 +66,15 @@ func GuardedTranslate(ctx context.Context, p Provider, req Request) (Result, err
 	if equalStrings(want, i18n.SimplePlaceholders(res.Text)) {
 		return res, nil
 	}
-	// One repair attempt — the request already carries the required placeholders.
+	// One corrective repair attempt: tell the provider its previous output broke
+	// the placeholder contract, so a deterministic model has a real signal to fix
+	// it rather than re-running an identical prompt.
+	if len(want) > 0 {
+		req.RepairNote = fmt.Sprintf(
+			"Your previous attempt %q did not preserve the required placeholders. Output the translation again and include every one of these verbatim: %s.",
+			res.Text, strings.Join(withBraces(want), ", "),
+		)
+	}
 	res, err = p.Translate(ctx, req)
 	if err != nil {
 		return res, err

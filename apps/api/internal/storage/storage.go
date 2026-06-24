@@ -11,6 +11,7 @@ import (
 type Store interface {
 	Put(key string, data []byte) error
 	Get(key string) ([]byte, error)
+	Delete(key string) error
 }
 
 // FS stores blobs as files under a base directory.
@@ -40,4 +41,8 @@ func (f *FS) Put(key string, data []byte) error {
 
 func (f *FS) Get(key string) ([]byte, error) {
 	return os.ReadFile(f.safe(key))
+}
+
+func (f *FS) Delete(key string) error {
+	return os.Remove(f.safe(key))
 }

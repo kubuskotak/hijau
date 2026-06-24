@@ -1,6 +1,9 @@
 // Package crypto seals provider credentials (e.g. MT API keys) at rest with
-// AES-256-GCM, keyed by HIJAU_ENCRYPTION_KEY. The key string may be any length;
-// it is hashed to a 32-byte key. Sealed output is nonce||ciphertext.
+// AES-256-GCM, keyed by HIJAU_ENCRYPTION_KEY. The key string is hashed to a
+// 32-byte key with a single SHA-256 pass (no work factor), so it MUST be
+// high-entropy random material — generate it with `openssl rand -base64 32`,
+// never a human-chosen passphrase, or sealed secrets become brute-forceable
+// offline if the database is exfiltrated. Sealed output is nonce||ciphertext.
 package crypto
 
 import (

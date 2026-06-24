@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -120,9 +121,13 @@ func (s *Server) unlockEditor(ctx context.Context, path *extractor.Path[projectP
 		return espresso.JSON[unlockDTO]{}, espresso.ErrUnauthorized("a project editor token is required to unlock editing")
 	}
 
-	// 2. Re-authenticate the person.
-	u, err := s.store.GetUserByEmail(ctx, body.Data.Email)
-	if err != nil {
+	// 2. Re-authenticate the person. Mirror the login path exactly: a
+	//    deactivated (is_active=false) or password-less account must be rejected
+	//    here too, otherwise deactivation — the off-boarding mechanism — would
+	//    not revoke in-context editing.
+	email := strings.TrimSpace(strings.ToLower(body.Data.Email))
+	u, err := s.store.GetUserByEmail(ctx, email)
+	if err != nil || !u.IsActive || !u.PasswordHash.Valid {
 		return espresso.JSON[unlockDTO]{}, espresso.ErrUnauthorized("invalid email or password")
 	}
 	ok, err := auth.VerifyPassword(body.Data.Password, u.PasswordHash.String)

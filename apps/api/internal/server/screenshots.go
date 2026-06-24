@@ -111,35 +111,46 @@ func (s *Server) uploadScreenshot(ctx context.Context, path *extractor.Path[proj
 	if uid := auth.FromContext(ctx).UserID; uid != "" {
 		createdBy = pgText(uid)
 	}
-	sc, err := s.store.CreateScreenshot(ctx, db.CreateScreenshotParams{
-		ID: sid, ProjectID: pid, StorageKey: storageKey, Name: body.Data.Name,
-		Width: body.Data.Width, Height: body.Data.Height, CreatedBy: createdBy,
-	})
-	if err != nil {
-		return espresso.JSON[screenshotDTO]{}, espresso.ErrInternal("could not save screenshot")
-	}
 
-	out := screenshotDTO{
-		ID: sc.ID, Name: sc.Name, Width: sc.Width, Height: sc.Height,
-		ImageURL: imageURL(pid, sc.ID), CreatedAt: sc.CreatedAt.Time.UTC().Format(time.RFC3339),
-	}
-	for _, r := range body.Data.Regions {
-		tr, err := s.store.GetTranslationBySubID(ctx, pgtype.Int8{Int64: r.SubID, Valid: true})
-		if err != nil {
-			continue // unknown sub_id — skip the region rather than fail the upload
-		}
-		key, err := s.store.GetKey(ctx, tr.KeyID)
-		if err != nil || key.ProjectID != pid {
-			continue // region points outside this project
-		}
-		reg, err := s.store.CreateScreenshotRegion(ctx, db.CreateScreenshotRegionParams{
-			ID: id.New(), ScreenshotID: sc.ID, KeyID: key.ID, TranslationID: pgText(tr.ID),
-			X: r.X, Y: r.Y, W: r.W, H: r.H,
+	// The screenshot row and its regions are written in one transaction so a
+	// region failure can't leave an orphaned screenshot; the blob is deleted if
+	// the transaction rolls back.
+	var out screenshotDTO
+	txErr := s.store.WithTx(ctx, func(q *db.Queries) error {
+		sc, err := q.CreateScreenshot(ctx, db.CreateScreenshotParams{
+			ID: sid, ProjectID: pid, StorageKey: storageKey, Name: body.Data.Name,
+			Width: body.Data.Width, Height: body.Data.Height, CreatedBy: createdBy,
 		})
 		if err != nil {
-			return espresso.JSON[screenshotDTO]{}, espresso.ErrInternal("could not save region")
+			return err
 		}
-		out.Regions = append(out.Regions, regionDTO{ID: reg.ID, KeyID: key.ID, SubID: r.SubID, X: reg.X, Y: reg.Y, W: reg.W, H: reg.H})
+		out = screenshotDTO{
+			ID: sc.ID, Name: sc.Name, Width: sc.Width, Height: sc.Height,
+			ImageURL: imageURL(pid, sc.ID), CreatedAt: sc.CreatedAt.Time.UTC().Format(time.RFC3339),
+		}
+		for _, r := range body.Data.Regions {
+			tr, err := q.GetTranslationBySubID(ctx, pgtype.Int8{Int64: r.SubID, Valid: true})
+			if err != nil {
+				continue // unknown sub_id — skip the region rather than fail the upload
+			}
+			key, err := q.GetKey(ctx, tr.KeyID)
+			if err != nil || key.ProjectID != pid {
+				continue // region points outside this project
+			}
+			reg, err := q.CreateScreenshotRegion(ctx, db.CreateScreenshotRegionParams{
+				ID: id.New(), ScreenshotID: sc.ID, KeyID: key.ID, TranslationID: pgText(tr.ID),
+				X: r.X, Y: r.Y, W: r.W, H: r.H,
+			})
+			if err != nil {
+				return err
+			}
+			out.Regions = append(out.Regions, regionDTO{ID: reg.ID, KeyID: key.ID, SubID: r.SubID, X: reg.X, Y: reg.Y, W: reg.W, H: reg.H})
+		}
+		return nil
+	})
+	if txErr != nil {
+		_ = s.storage.Delete(storageKey) // best-effort: don't leave an orphaned blob
+		return espresso.JSON[screenshotDTO]{}, espresso.ErrInternal("could not save screenshot")
 	}
 	return espresso.JSON[screenshotDTO]{StatusCode: http.StatusCreated, Data: out}, nil
 }

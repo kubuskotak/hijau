@@ -156,7 +156,9 @@ func (s *Server) suggestMT(ctx context.Context, path *extractor.Path[keyPath], b
 		if errors.As(err, &mismatch) {
 			return espresso.JSON[mt.Result]{}, espresso.ErrBadRequest("the machine translation changed ICU placeholders; not applied")
 		}
-		return espresso.JSON[mt.Result]{}, espresso.ErrServiceUnavailable("machine translation failed: " + err.Error())
+		// Don't reflect the raw upstream provider error (HTTP status, request IDs,
+		// response-body fragments) to the client.
+		return espresso.JSON[mt.Result]{}, espresso.ErrServiceUnavailable("machine translation is temporarily unavailable")
 	}
 	return espresso.JSON[mt.Result]{Data: res}, nil
 }
