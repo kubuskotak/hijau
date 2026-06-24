@@ -172,6 +172,29 @@ export interface GlossaryTerm {
 	translations: Record<string, string>;
 }
 
+export interface ImportResult {
+	created: number;
+	updated: number;
+	skipped: number;
+	warnings: string[];
+}
+export interface Webhook {
+	id: string;
+	url: string;
+	events: string[];
+	active: boolean;
+	createdAt: string;
+	secret?: string; // returned only once, on create
+}
+export interface WebhookDelivery {
+	id: string;
+	event: string;
+	statusCode: number;
+	success: boolean;
+	error: string;
+	createdAt: string;
+}
+
 type KeyQuery = { namespaceId?: string; search?: string; limit?: number; offset?: number };
 
 export const api = {
@@ -245,11 +268,40 @@ export const api = {
 	listKeyScreenshots: (pid: string, kid: string) =>
 		req<Screenshot[]>('GET', `/projects/${pid}/keys/${kid}/screenshots`),
 
-	// machine translation + translation memory + glossary
+	// machine translation + translation memory
 	mtConfig: (pid: string) => req<MtConfig>('GET', `/projects/${pid}/mt/config`),
+	configureMT: (pid: string, b: { provider: string; model?: string; apiKey?: string; enabled?: boolean }) =>
+		req<MtConfig>('PUT', `/projects/${pid}/mt/config`, b),
 	mtSuggest: (pid: string, kid: string, targetLang: string) =>
 		req<MtResult>('POST', `/projects/${pid}/keys/${kid}/mt/suggest`, { targetLang }),
 	tmSuggest: (pid: string, kid: string, targetLang: string) =>
 		req<TmMatch[]>('POST', `/projects/${pid}/keys/${kid}/tm/suggest`, { targetLang }),
-	listGlossary: (pid: string) => req<GlossaryTerm[]>('GET', `/projects/${pid}/glossary`)
+
+	// glossary
+	listGlossary: (pid: string) => req<GlossaryTerm[]>('GET', `/projects/${pid}/glossary`),
+	createGlossaryTerm: (
+		pid: string,
+		b: { term: string; description?: string; caseSensitive?: boolean; doNotTranslate?: boolean }
+	) => req<GlossaryTerm>('POST', `/projects/${pid}/glossary`, b),
+	deleteGlossaryTerm: (pid: string, termId: string) =>
+		req<{ ok: boolean }>('DELETE', `/projects/${pid}/glossary/${termId}`),
+	setGlossaryTranslation: (pid: string, termId: string, lang: string, text: string) =>
+		req<{ ok: boolean }>('PUT', `/projects/${pid}/glossary/${termId}/translations/${lang}`, { text }),
+
+	// import / export
+	importTranslations: (
+		pid: string,
+		b: { format: string; lang: string; conflict?: string; content: string }
+	) => req<ImportResult>('POST', `/projects/${pid}/import`, b),
+	exportUrl: (pid: string, p: { format: string; lang: string; state?: string }) =>
+		`${BASE}/projects/${pid}/export${qs(p)}`,
+
+	// webhooks
+	listWebhooks: (pid: string) => req<Webhook[]>('GET', `/projects/${pid}/webhooks`),
+	createWebhook: (pid: string, b: { url: string; events?: string[] }) =>
+		req<Webhook>('POST', `/projects/${pid}/webhooks`, b),
+	deleteWebhook: (pid: string, wid: string) =>
+		req<{ ok: boolean }>('DELETE', `/projects/${pid}/webhooks/${wid}`),
+	listWebhookDeliveries: (pid: string, wid: string) =>
+		req<WebhookDelivery[]>('GET', `/projects/${pid}/webhooks/${wid}/deliveries`)
 };

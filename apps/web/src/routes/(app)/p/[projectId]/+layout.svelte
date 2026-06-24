@@ -7,7 +7,10 @@
 
 	const tabs = $derived([
 		{ href: `/p/${pid}`, label: 'Editor' },
-		{ href: `/p/${pid}/languages`, label: 'Languages' }
+		{ href: `/p/${pid}/languages`, label: 'Languages' },
+		{ href: `/p/${pid}/glossary`, label: 'Glossary' },
+		{ href: `/p/${pid}/io`, label: 'Import / Export' },
+		{ href: `/p/${pid}/webhooks`, label: 'Webhooks' }
 	]);
 </script>
 
