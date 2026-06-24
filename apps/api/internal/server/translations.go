@@ -119,6 +119,11 @@ func (s *Server) setTranslation(ctx context.Context, path *extractor.Path[transP
 	if err != nil {
 		return espresso.JSON[translationDTO]{}, mapServiceErr(err)
 	}
+	s.dispatchWebhooks(d.PID, "translation.updated", webhookPayload{
+		Event: "translation.updated", ProjectID: d.PID, Key: key.Name, Language: lang.Tag,
+		Text: res.Translation.Text.String, State: string(res.Translation.State),
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
+	})
 	return espresso.JSON[translationDTO]{Data: toTranslationDTO(res.Translation)}, nil
 }
 
@@ -151,6 +156,15 @@ func (s *Server) transitionTranslation(ctx context.Context, path *extractor.Path
 	if action == service.Approve {
 		_ = service.RecordApprovedTM(ctx, s.store, key, lang, baseID, res.Translation.Text.String)
 	}
+	event := "translation.reviewed"
+	if action == service.Reject {
+		event = "translation.needs_work"
+	}
+	s.dispatchWebhooks(d.PID, event, webhookPayload{
+		Event: event, ProjectID: d.PID, Key: key.Name, Language: lang.Tag,
+		Text: res.Translation.Text.String, State: string(res.Translation.State),
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
+	})
 	return espresso.JSON[translationDTO]{Data: toTranslationDTO(res.Translation)}, nil
 }
 

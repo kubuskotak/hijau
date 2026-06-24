@@ -668,3 +668,23 @@ type User struct {
 	CreatedAt    pgtype.Timestamptz `json:"createdAt"`
 	UpdatedAt    pgtype.Timestamptz `json:"updatedAt"`
 }
+
+type Webhook struct {
+	ID        string             `json:"id"`
+	ProjectID string             `json:"projectId"`
+	Url       string             `json:"url"`
+	Secret    []byte             `json:"secret"`
+	Events    []string           `json:"events"`
+	Active    bool               `json:"active"`
+	CreatedAt pgtype.Timestamptz `json:"createdAt"`
+}
+
+type WebhookDelivery struct {
+	ID         string             `json:"id"`
+	WebhookID  string             `json:"webhookId"`
+	Event      string             `json:"event"`
+	StatusCode int32              `json:"statusCode"`
+	Success    bool               `json:"success"`
+	Error      string             `json:"error"`
+	CreatedAt  pgtype.Timestamptz `json:"createdAt"`
+}

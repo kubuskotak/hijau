@@ -27,12 +27,14 @@ type Querier interface {
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
 	CreateTranslation(ctx context.Context, arg CreateTranslationParams) (Translation, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
+	CreateWebhook(ctx context.Context, arg CreateWebhookParams) (Webhook, error)
 	DeleteExpiredSessions(ctx context.Context) error
 	DeleteGlossaryTerm(ctx context.Context, id string) error
 	DeleteLanguage(ctx context.Context, id string) error
 	DeleteMTConfig(ctx context.Context, projectID string) error
 	DeleteSession(ctx context.Context, tokenHash string) error
 	DeleteUserSessions(ctx context.Context, userID string) error
+	DeleteWebhook(ctx context.Context, id string) error
 	FindTMExact(ctx context.Context, arg FindTMExactParams) ([]FindTMExactRow, error)
 	FindTMFuzzy(ctx context.Context, arg FindTMFuzzyParams) ([]FindTMFuzzyRow, error)
 	GetAPIKeyByHash(ctx context.Context, keyHash string) (ApiKey, error)
@@ -56,10 +58,13 @@ type Querier interface {
 	GetTranslationForUpdate(ctx context.Context, arg GetTranslationForUpdateParams) (Translation, error)
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id string) (User, error)
+	GetWebhook(ctx context.Context, id string) (Webhook, error)
 	InsertActivity(ctx context.Context, arg InsertActivityParams) error
 	InsertTMSegment(ctx context.Context, arg InsertTMSegmentParams) error
 	InsertTranslationHistory(ctx context.Context, arg InsertTranslationHistoryParams) error
+	InsertWebhookDelivery(ctx context.Context, arg InsertWebhookDeliveryParams) error
 	ListAPIKeysByProject(ctx context.Context, projectID pgtype.Text) ([]ApiKey, error)
+	ListActiveWebhooks(ctx context.Context, projectID string) ([]Webhook, error)
 	ListCommentsForTranslation(ctx context.Context, translationID pgtype.Text) ([]ListCommentsForTranslationRow, error)
 	ListGlossaryTerms(ctx context.Context, projectID string) ([]GlossaryTerm, error)
 	ListGlossaryTranslationsByProject(ctx context.Context, projectID string) ([]GlossaryTranslation, error)
@@ -77,6 +82,8 @@ type Querier interface {
 	ListTranslationsForKey(ctx context.Context, keyID string) ([]Translation, error)
 	ListTranslationsForKeys(ctx context.Context, dollar_1 []string) ([]Translation, error)
 	ListUserOrganizations(ctx context.Context, userID string) ([]Organization, error)
+	ListWebhookDeliveries(ctx context.Context, webhookID string) ([]WebhookDelivery, error)
+	ListWebhooks(ctx context.Context, projectID string) ([]Webhook, error)
 	MarkSiblingsOutdated(ctx context.Context, arg MarkSiblingsOutdatedParams) ([]Translation, error)
 	MatchGlossary(ctx context.Context, arg MatchGlossaryParams) ([]MatchGlossaryRow, error)
 	ResolveComment(ctx context.Context, arg ResolveCommentParams) (Comment, error)
