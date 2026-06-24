@@ -85,6 +85,11 @@ func (s *Server) Router() *espresso.Router {
 		Post("/api/v1/projects/{pid}/webhooks", espresso.Lungo(s.createWebhook)).
 		Delete("/api/v1/projects/{pid}/webhooks/{wid}", espresso.Doppio(s.deleteWebhook)).
 		Get("/api/v1/projects/{pid}/webhooks/{wid}/deliveries", espresso.Doppio(s.listWebhookDeliveries)).
+		Get("/api/v1/projects/{pid}/members", espresso.Doppio(s.listMembers)).
+		Post("/api/v1/projects/{pid}/members", espresso.Lungo(s.addMember)).
+		Patch("/api/v1/projects/{pid}/members/{mid}", espresso.Lungo(s.updateMemberRole)).
+		Delete("/api/v1/projects/{pid}/members/{mid}", espresso.Doppio(s.removeMember)).
+		Put("/api/v1/projects/{pid}/members/{mid}/languages", espresso.Lungo(s.setMemberLanguages)).
 		Get("/api/v1/projects/{pid}/activity", espresso.Lungo(s.listActivity)).
 		Get("/api/v1/projects/{pid}/events", espresso.Stream(s.streamEvents)).
 		Post("/api/v1/projects/{pid}/keys/{kid}/tm/suggest", espresso.Lungo(s.tmSuggest)).

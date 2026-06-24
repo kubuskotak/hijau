@@ -9,6 +9,39 @@ import (
 	"context"
 )
 
+const addProjectMemberLanguage = `-- name: AddProjectMemberLanguage :exec
+INSERT INTO project_member_languages (member_id, language_id)
+VALUES ($1, $2) ON CONFLICT DO NOTHING
+`
+
+type AddProjectMemberLanguageParams struct {
+	MemberID   string `json:"memberId"`
+	LanguageID string `json:"languageId"`
+}
+
+func (q *Queries) AddProjectMemberLanguage(ctx context.Context, arg AddProjectMemberLanguageParams) error {
+	_, err := q.db.Exec(ctx, addProjectMemberLanguage, arg.MemberID, arg.LanguageID)
+	return err
+}
+
+const clearProjectMemberLanguages = `-- name: ClearProjectMemberLanguages :exec
+DELETE FROM project_member_languages WHERE member_id = $1
+`
+
+func (q *Queries) ClearProjectMemberLanguages(ctx context.Context, memberID string) error {
+	_, err := q.db.Exec(ctx, clearProjectMemberLanguages, memberID)
+	return err
+}
+
+const deleteProjectMember = `-- name: DeleteProjectMember :exec
+DELETE FROM project_members WHERE id = $1
+`
+
+func (q *Queries) DeleteProjectMember(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, deleteProjectMember, id)
+	return err
+}
+
 const getOrgMembership = `-- name: GetOrgMembership :one
 SELECT id, org_id, user_id, role, created_at FROM org_memberships WHERE org_id = $1 AND user_id = $2
 `
@@ -69,6 +102,23 @@ func (q *Queries) GetProjectMember(ctx context.Context, arg GetProjectMemberPara
 	return i, err
 }
 
+const getProjectMemberByID = `-- name: GetProjectMemberByID :one
+SELECT id, project_id, user_id, role, created_at FROM project_members WHERE id = $1
+`
+
+func (q *Queries) GetProjectMemberByID(ctx context.Context, id string) (ProjectMember, error) {
+	row := q.db.QueryRow(ctx, getProjectMemberByID, id)
+	var i ProjectMember
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.UserID,
+		&i.Role,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const listProjectMemberLanguageIDs = `-- name: ListProjectMemberLanguageIDs :many
 SELECT language_id FROM project_member_languages WHERE member_id = $1
 `
@@ -91,4 +141,18 @@ func (q *Queries) ListProjectMemberLanguageIDs(ctx context.Context, memberID str
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateProjectMemberRole = `-- name: UpdateProjectMemberRole :exec
+UPDATE project_members SET role = $2 WHERE id = $1
+`
+
+type UpdateProjectMemberRoleParams struct {
+	ID   string      `json:"id"`
+	Role ProjectRole `json:"role"`
+}
+
+func (q *Queries) UpdateProjectMemberRole(ctx context.Context, arg UpdateProjectMemberRoleParams) error {
+	_, err := q.db.Exec(ctx, updateProjectMemberRole, arg.ID, arg.Role)
+	return err
 }

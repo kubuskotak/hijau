@@ -172,6 +172,14 @@ export interface GlossaryTerm {
 	translations: Record<string, string>;
 }
 
+export interface Member {
+	id: string;
+	userId: string;
+	email: string;
+	name: string;
+	role: string;
+	languageIds: string[];
+}
 export interface Activity {
 	id: string;
 	type: string;
@@ -316,5 +324,16 @@ export const api = {
 
 	// activity feed
 	listActivity: (pid: string, limit = 50) =>
-		req<Activity[]>('GET', `/projects/${pid}/activity?limit=${limit}`)
+		req<Activity[]>('GET', `/projects/${pid}/activity?limit=${limit}`),
+
+	// members
+	listMembers: (pid: string) => req<Member[]>('GET', `/projects/${pid}/members`),
+	addMember: (pid: string, b: { email: string; role: string }) =>
+		req<Member>('POST', `/projects/${pid}/members`, b),
+	updateMemberRole: (pid: string, mid: string, role: string) =>
+		req<{ ok: boolean }>('PATCH', `/projects/${pid}/members/${mid}`, { role }),
+	removeMember: (pid: string, mid: string) =>
+		req<{ ok: boolean }>('DELETE', `/projects/${pid}/members/${mid}`),
+	setMemberLanguages: (pid: string, mid: string, languageIds: string[]) =>
+		req<{ ok: boolean }>('PUT', `/projects/${pid}/members/${mid}/languages`, { languageIds })
 };

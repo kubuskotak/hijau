@@ -11,6 +11,8 @@ import (
 )
 
 type Querier interface {
+	AddProjectMemberLanguage(ctx context.Context, arg AddProjectMemberLanguageParams) error
+	ClearProjectMemberLanguages(ctx context.Context, memberID string) error
 	CountKeys(ctx context.Context, projectID string) (int64, error)
 	CreateAPIKey(ctx context.Context, arg CreateAPIKeyParams) (ApiKey, error)
 	CreateComment(ctx context.Context, arg CreateCommentParams) (Comment, error)
@@ -32,6 +34,7 @@ type Querier interface {
 	DeleteGlossaryTerm(ctx context.Context, id string) error
 	DeleteLanguage(ctx context.Context, id string) error
 	DeleteMTConfig(ctx context.Context, projectID string) error
+	DeleteProjectMember(ctx context.Context, id string) error
 	DeleteSession(ctx context.Context, tokenHash string) error
 	DeleteUserSessions(ctx context.Context, userID string) error
 	DeleteWebhook(ctx context.Context, id string) error
@@ -55,6 +58,7 @@ type Querier interface {
 	GetProject(ctx context.Context, id string) (Project, error)
 	GetProjectForAuth(ctx context.Context, id string) (GetProjectForAuthRow, error)
 	GetProjectMember(ctx context.Context, arg GetProjectMemberParams) (ProjectMember, error)
+	GetProjectMemberByID(ctx context.Context, id string) (ProjectMember, error)
 	GetScreenshot(ctx context.Context, id string) (Screenshot, error)
 	GetSessionByTokenHash(ctx context.Context, tokenHash string) (GetSessionByTokenHashRow, error)
 	GetTranslation(ctx context.Context, arg GetTranslationParams) (Translation, error)
@@ -104,6 +108,7 @@ type Querier interface {
 	UnresolveComment(ctx context.Context, id string) (Comment, error)
 	UpdateKey(ctx context.Context, arg UpdateKeyParams) (TranslationKey, error)
 	UpdateProject(ctx context.Context, arg UpdateProjectParams) (Project, error)
+	UpdateProjectMemberRole(ctx context.Context, arg UpdateProjectMemberRoleParams) error
 	UpdateTranslation(ctx context.Context, arg UpdateTranslationParams) (Translation, error)
 	UpsertGlossaryTranslation(ctx context.Context, arg UpsertGlossaryTranslationParams) (GlossaryTranslation, error)
 	UpsertMTConfig(ctx context.Context, arg UpsertMTConfigParams) (MtConfig, error)
