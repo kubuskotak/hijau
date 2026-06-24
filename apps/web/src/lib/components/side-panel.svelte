@@ -5,7 +5,11 @@
 		type Language,
 		type HistoryEntry,
 		type Comment,
-		type Screenshot
+		type Screenshot,
+		type TmMatch,
+		type MtResult,
+		type MtConfig,
+		type Translation
 	} from '$lib/api';
 	import {Button} from '$lib/components/ui/button/index';
 	import {Textarea} from '$lib/components/ui/textarea/index';
@@ -17,16 +21,21 @@
 		keyRow,
 		lang,
 		baseText,
-		onclose
+		isBase = false,
+		onclose,
+		onapply
 	}: {
 		pid: string;
 		keyRow: EditorRow;
 		lang: Language;
 		baseText: string;
+		isBase?: boolean;
 		onclose: () => void;
+		onapply?: (updated: Translation) => void;
 	} = $props();
 
-	let tab = $state<'history' | 'comments' | 'screenshots'>('history');
+	type Tab = 'suggest' | 'history' | 'comments' | 'screenshots';
+	let tab = $state<Tab>('history');
 	let history = $state<HistoryEntry[]>([]);
 	let comments = $state<Comment[]>([]);
 	let screenshots = $state<Screenshot[]>([]);
@@ -34,6 +43,18 @@
 	let err = $state('');
 	let draft = $state('');
 	let posting = $state(false);
+
+	// suggestions (target cells only)
+	let tmMatches = $state<TmMatch[]>([]);
+	let mtCfg = $state<MtConfig | null>(null);
+	let mtResult = $state<MtResult | null>(null);
+	let mtBusy = $state(false);
+	let mtErr = $state('');
+	let applied = $state('');
+
+	const tabs = $derived<Tab[]>(
+		isBase ? ['history', 'comments', 'screenshots'] : ['suggest', 'history', 'comments', 'screenshots']
+	);
 
 	async function loadFor(kid: string, langTag: string) {
 		loading = true;
@@ -49,12 +70,52 @@
 		} finally {
 			loading = false;
 		}
+		// Translation memory + MT availability — target cells only.
+		mtResult = null;
+		mtErr = '';
+		applied = '';
+		if (!isBase) {
+			try {
+				[tmMatches, mtCfg] = await Promise.all([
+					api.tmSuggest(pid, kid, langTag),
+					api.mtConfig(pid)
+				]);
+			} catch {
+				tmMatches = [];
+				mtCfg = null;
+			}
+		}
 	}
 
-	// Reload whenever the focused cell changes.
+	// Reload whenever the focused cell changes; default target cells to Suggestions.
 	$effect(() => {
+		const cell = keyRow.id + lang.tag;
+		void cell;
+		tab = isBase ? 'history' : 'suggest';
 		void loadFor(keyRow.id, lang.tag);
 	});
+
+	async function machineTranslate() {
+		mtBusy = true;
+		mtErr = '';
+		try {
+			mtResult = await api.mtSuggest(pid, keyRow.id, lang.tag);
+		} catch (e) {
+			mtErr = (e as Error).message;
+		} finally {
+			mtBusy = false;
+		}
+	}
+
+	async function apply(text: string) {
+		try {
+			const updated = await api.setTranslation(pid, keyRow.id, lang.tag, text);
+			onapply?.(updated);
+			applied = text;
+		} catch (e) {
+			err = (e as Error).message;
+		}
+	}
 
 	async function postComment(e: SubmitEvent) {
 		e.preventDefault();
@@ -125,7 +186,7 @@
 	</div>
 
 	<nav class="flex gap-1 border-b px-2">
-		{#each ['history', 'comments', 'screenshots'] as const as t (t)}
+		{#each tabs as t (t)}
 			<button
 				class={'border-b-2 px-3 py-2 text-sm capitalize ' +
 					(tab === t
@@ -142,7 +203,70 @@
 
 	<div class="flex-1 overflow-y-auto p-4">
 		{#if err}<p class="text-sm text-destructive">{err}</p>{/if}
-		{#if loading}
+		{#if tab === 'suggest'}
+			<div class="space-y-4">
+				<div>
+					<div class="mb-1 text-xs font-medium text-muted-foreground">Translation memory</div>
+					{#if tmMatches.length === 0}
+						<p class="text-sm text-muted-foreground">No memory matches.</p>
+					{:else}
+						<ul class="space-y-2">
+							{#each tmMatches as m (m.targetText)}
+								<li class="rounded-md border p-2 text-sm">
+									<div class="flex items-center justify-between gap-2">
+										<Badge
+											variant="default"
+											class={m.exact
+												? 'text-emerald-600 dark:text-emerald-400'
+												: 'text-amber-600 dark:text-amber-500'}
+										>
+											{m.score}%{m.exact ? ' exact' : ''}
+										</Badge>
+										<Button size="sm" variant="outline" class="h-7" onclick={() => apply(m.targetText)}>
+											Apply
+										</Button>
+									</div>
+									<p class="mt-1 whitespace-pre-wrap">{m.targetText}</p>
+									{#if !m.exact}
+										<p class="mt-0.5 text-xs text-muted-foreground">from: {m.sourceText}</p>
+									{/if}
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				</div>
+
+				<div>
+					<div class="mb-1 text-xs font-medium text-muted-foreground">Machine translation</div>
+					{#if mtCfg?.enabled}
+						{#if mtResult}
+							<div class="rounded-md border p-2 text-sm">
+								<div class="flex items-center justify-between gap-2">
+									<Badge variant="secondary">{mtResult.provider}{mtResult.model ? ` · ${mtResult.model}` : ''}</Badge>
+									<Button size="sm" variant="outline" class="h-7" onclick={() => apply(mtResult!.text)}>
+										Apply
+									</Button>
+								</div>
+								<p class="mt-1 whitespace-pre-wrap">{mtResult.text}</p>
+							</div>
+						{:else}
+							<Button size="sm" variant="outline" disabled={mtBusy} onclick={machineTranslate}>
+								{mtBusy ? 'Translating…' : `Machine translate (${mtCfg.provider})`}
+							</Button>
+						{/if}
+						{#if mtErr}<p class="mt-1 text-xs text-destructive">{mtErr}</p>{/if}
+					{:else}
+						<p class="text-sm text-muted-foreground">
+							Machine translation isn't configured for this project.
+						</p>
+					{/if}
+				</div>
+
+				{#if applied}
+					<p class="text-xs text-emerald-600 dark:text-emerald-400">Applied “{applied}” ✓</p>
+				{/if}
+			</div>
+		{:else if loading}
 			<p class="text-sm text-muted-foreground">Loading…</p>
 		{:else if tab === 'history'}
 			{#if history.length === 0}

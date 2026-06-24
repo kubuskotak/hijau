@@ -171,6 +171,8 @@
 		keyRow={panel.row}
 		lang={panel.lang}
 		baseText={panel.row.translations[baseId]?.text ?? ''}
+		isBase={panel.lang.id === baseId}
 		onclose={() => (panel = null)}
+		onapply={(updated) => (panel!.row.translations[panel!.lang.id] = updated)}
 	/>
 {/if}

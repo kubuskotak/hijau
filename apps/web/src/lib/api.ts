@@ -145,6 +145,33 @@ export interface Screenshot {
 	regions: ScreenshotRegion[];
 }
 
+export interface MtConfig {
+	provider: string;
+	model: string;
+	enabled: boolean;
+	hasCredentials: boolean;
+}
+export interface MtResult {
+	text: string;
+	provider: string;
+	model: string;
+	notes?: string;
+}
+export interface TmMatch {
+	sourceText: string;
+	targetText: string;
+	score: number;
+	exact: boolean;
+}
+export interface GlossaryTerm {
+	id: string;
+	term: string;
+	description: string;
+	caseSensitive: boolean;
+	doNotTranslate: boolean;
+	translations: Record<string, string>;
+}
+
 type KeyQuery = { namespaceId?: string; search?: string; limit?: number; offset?: number };
 
 export const api = {
@@ -216,5 +243,13 @@ export const api = {
 
 	// screenshots where a key appears (with regions highlighting it)
 	listKeyScreenshots: (pid: string, kid: string) =>
-		req<Screenshot[]>('GET', `/projects/${pid}/keys/${kid}/screenshots`)
+		req<Screenshot[]>('GET', `/projects/${pid}/keys/${kid}/screenshots`),
+
+	// machine translation + translation memory + glossary
+	mtConfig: (pid: string) => req<MtConfig>('GET', `/projects/${pid}/mt/config`),
+	mtSuggest: (pid: string, kid: string, targetLang: string) =>
+		req<MtResult>('POST', `/projects/${pid}/keys/${kid}/mt/suggest`, { targetLang }),
+	tmSuggest: (pid: string, kid: string, targetLang: string) =>
+		req<TmMatch[]>('POST', `/projects/${pid}/keys/${kid}/tm/suggest`, { targetLang }),
+	listGlossary: (pid: string) => req<GlossaryTerm[]>('GET', `/projects/${pid}/glossary`)
 };
