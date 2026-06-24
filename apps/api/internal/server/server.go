@@ -77,6 +77,7 @@ func (s *Server) Router() *espresso.Router {
 		Get("/api/v1/projects/{pid}/mt/config", espresso.Doppio(s.getMTConfig)).
 		Put("/api/v1/projects/{pid}/mt/config", espresso.Lungo(s.configureMT)).
 		Post("/api/v1/projects/{pid}/keys/{kid}/mt/suggest", espresso.Lungo(s.suggestMT)).
+		Post("/api/v1/projects/{pid}/auto-translate", espresso.Lungo(s.autoTranslate)).
 		Post("/api/v1/projects/{pid}/keys/{kid}/tm/suggest", espresso.Lungo(s.tmSuggest)).
 		Get("/api/v1/projects/{pid}/glossary", espresso.Doppio(s.listGlossary)).
 		Post("/api/v1/projects/{pid}/glossary", espresso.Lungo(s.createGlossaryTerm)).
