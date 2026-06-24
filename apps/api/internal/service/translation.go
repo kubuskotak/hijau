@@ -162,6 +162,32 @@ func SetTranslation(ctx context.Context, st *store.Store, in SetTranslationInput
 	return res, err
 }
 
+// RecordApprovedTM stores an approved translation as a translation-memory
+// segment. It is best-effort and meant to run AFTER the approval commits — a
+// failure here must never roll back the approval, so callers ignore the error
+// (after logging). Base-language approvals and empty sources are skipped.
+func RecordApprovedTM(ctx context.Context, st *store.Store, key db.TranslationKey, targetLang db.Language, baseLanguageID, targetText string) error {
+	if targetLang.ID == baseLanguageID || strings.TrimSpace(targetText) == "" {
+		return nil
+	}
+	bt, err := st.GetTranslation(ctx, db.GetTranslationParams{KeyID: key.ID, LanguageID: baseLanguageID})
+	if err != nil || !bt.Text.Valid || strings.TrimSpace(bt.Text.String) == "" {
+		return nil // no source text to key the memory on
+	}
+	baseLang, err := st.GetLanguage(ctx, baseLanguageID)
+	if err != nil {
+		return err
+	}
+	return st.InsertTMSegment(ctx, db.InsertTMSegmentParams{
+		ID: id.New(), ProjectID: key.ProjectID,
+		SourceLang: baseLang.Tag, TargetLang: targetLang.Tag,
+		SourceText: bt.Text.String, TargetText: targetText,
+		SourceHash: i18n.SourceHash(bt.Text.String),
+		KeyID:      pgtype.Text{String: key.ID, Valid: true},
+		Origin:     "human",
+	})
+}
+
 // validateText checks the new text's ICU placeholders against the base string.
 func validateText(ctx context.Context, q *db.Queries, in SetTranslationInput) error {
 	base := in.Text

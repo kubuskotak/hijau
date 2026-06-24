@@ -147,6 +147,10 @@ func (s *Server) transitionTranslation(ctx context.Context, path *extractor.Path
 	if err != nil {
 		return espresso.JSON[translationDTO]{}, mapServiceErr(err)
 	}
+	// Populate translation memory on approval (post-commit, best-effort).
+	if action == service.Approve {
+		_ = service.RecordApprovedTM(ctx, s.store, key, lang, baseID, res.Translation.Text.String)
+	}
 	return espresso.JSON[translationDTO]{Data: toTranslationDTO(res.Translation)}, nil
 }
 

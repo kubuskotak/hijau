@@ -31,6 +31,8 @@ type Querier interface {
 	DeleteMTConfig(ctx context.Context, projectID string) error
 	DeleteSession(ctx context.Context, tokenHash string) error
 	DeleteUserSessions(ctx context.Context, userID string) error
+	FindTMExact(ctx context.Context, arg FindTMExactParams) ([]FindTMExactRow, error)
+	FindTMFuzzy(ctx context.Context, arg FindTMFuzzyParams) ([]FindTMFuzzyRow, error)
 	GetAPIKeyByHash(ctx context.Context, keyHash string) (ApiKey, error)
 	GetComment(ctx context.Context, id string) (Comment, error)
 	GetCommentProjectID(ctx context.Context, id string) (string, error)
@@ -52,6 +54,7 @@ type Querier interface {
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id string) (User, error)
 	InsertActivity(ctx context.Context, arg InsertActivityParams) error
+	InsertTMSegment(ctx context.Context, arg InsertTMSegmentParams) error
 	InsertTranslationHistory(ctx context.Context, arg InsertTranslationHistoryParams) error
 	ListAPIKeysByProject(ctx context.Context, projectID pgtype.Text) ([]ApiKey, error)
 	ListCommentsForTranslation(ctx context.Context, translationID pgtype.Text) ([]ListCommentsForTranslationRow, error)

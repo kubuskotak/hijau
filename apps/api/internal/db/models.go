@@ -583,6 +583,19 @@ type Task struct {
 	FinishedAt pgtype.Timestamptz `json:"finishedAt"`
 }
 
+type TmSegment struct {
+	ID         string             `json:"id"`
+	ProjectID  string             `json:"projectId"`
+	SourceLang string             `json:"sourceLang"`
+	TargetLang string             `json:"targetLang"`
+	SourceText string             `json:"sourceText"`
+	TargetText string             `json:"targetText"`
+	SourceHash string             `json:"sourceHash"`
+	KeyID      pgtype.Text        `json:"keyId"`
+	Origin     string             `json:"origin"`
+	CreatedAt  pgtype.Timestamptz `json:"createdAt"`
+}
+
 type Translation struct {
 	ID         string             `json:"id"`
 	KeyID      string             `json:"keyId"`
