@@ -89,7 +89,11 @@ func (s *Server) Router() *espresso.Router {
 		Post("/api/v1/projects/{pid}/glossary", espresso.Lungo(s.createGlossaryTerm)).
 		Delete("/api/v1/projects/{pid}/glossary/{termId}", espresso.Doppio(s.deleteGlossaryTerm)).
 		Put("/api/v1/projects/{pid}/glossary/{termId}/translations/{lang}", espresso.Lungo(s.setGlossaryTranslation)).
-		Post("/api/v1/comments/{cid}/resolve", espresso.Lungo(s.resolveComment))
+		Post("/api/v1/comments/{cid}/resolve", espresso.Lungo(s.resolveComment)).
+		// Catch-all: serve the built SPA when HIJAU_WEB_DIR is set. The specific
+		// /api and /health routes above win in the mux; this only handles the
+		// remaining GETs (SPA routes + static assets).
+		Get("/", http.HandlerFunc(s.serveStatic))
 }
 
 // authErr maps an authorization result to the right HTTP error.

@@ -1,0 +1,10 @@
+.git
+**/node_modules
+**/.svelte-kit
+**/build
+**/dist
+apps/api/data
+/data
+/docker/pgdata
+**/*.log
+.env

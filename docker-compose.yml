@@ -1,6 +1,27 @@
-# Hijau local stack. For M1, only Postgres runs here; the `app` and `worker`
-# services (Go binary) are added once the server image exists.
+# Hijau self-hosted stack: Postgres + the app (a single Go server that serves
+# the REST API and the built SPA on one port). One command:
+# `docker compose up --build`, then open http://localhost:8080.
 services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://hijau:hijau@postgres:5432/hijau?sslmode=disable
+      PORT: "8080"
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8080}
+      SESSION_SECRET: ${SESSION_SECRET:-dev-session-secret-change-me}
+      HIJAU_ENCRYPTION_KEY: ${HIJAU_ENCRYPTION_KEY:-dev-encryption-key-change-me-32b}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+    ports:
+      - "8080:8080"   # API + SPA served together
+    volumes:
+      - appdata:/app/data   # screenshots and other uploads
+    restart: unless-stopped
+
   postgres:
     image: pgvector/pgvector:pg16
     environment:
@@ -20,3 +41,4 @@ services:
 
 volumes:
   pgdata:
+  appdata:

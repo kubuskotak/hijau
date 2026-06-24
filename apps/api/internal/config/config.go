@@ -28,6 +28,7 @@ type Config struct {
 	CORSOrigins   []string
 	Storage       string
 	StorageDir    string
+	WebDir        string // built SPA dir to serve; empty = API only (dev uses Vite)
 	Seed          bool
 }
 
@@ -41,6 +42,7 @@ func Load() (Config, error) {
 		EncryptionKey: os.Getenv("HIJAU_ENCRYPTION_KEY"),
 		Storage:       getenv("HIJAU_STORAGE", "fs"),
 		StorageDir:    getenv("HIJAU_STORAGE_DIR", "./data/screenshots"),
+		WebDir:        os.Getenv("HIJAU_WEB_DIR"),
 		Seed:          os.Getenv("HIJAU_SEED") == "1",
 	}
 	if raw := os.Getenv("CORS_ORIGINS"); raw != "" {
