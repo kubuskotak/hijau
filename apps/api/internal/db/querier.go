@@ -37,6 +37,10 @@ type Querier interface {
 	DeleteWebhook(ctx context.Context, id string) error
 	FindTMExact(ctx context.Context, arg FindTMExactParams) ([]FindTMExactRow, error)
 	FindTMFuzzy(ctx context.Context, arg FindTMFuzzyParams) ([]FindTMFuzzyRow, error)
+	// User-bound tokens (PATs, unlocked editor tokens) are rejected once their
+	// owner is deactivated — so deactivation immediately revokes access, mirroring
+	// session resolution. Unattended keys (no owner, e.g. read-only editor tokens)
+	// are unaffected.
 	GetAPIKeyByHash(ctx context.Context, keyHash string) (ApiKey, error)
 	GetComment(ctx context.Context, id string) (Comment, error)
 	GetCommentProjectID(ctx context.Context, id string) (string, error)

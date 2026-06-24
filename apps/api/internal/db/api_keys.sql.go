@@ -60,12 +60,18 @@ func (q *Queries) CreateAPIKey(ctx context.Context, arg CreateAPIKeyParams) (Api
 }
 
 const getAPIKeyByHash = `-- name: GetAPIKeyByHash :one
-SELECT id, type, name, key_hash, prefix, scopes, owner_user_id, project_id, expires_at, last_used_at, revoked_at, created_at FROM api_keys
-WHERE key_hash = $1
-  AND revoked_at IS NULL
-  AND (expires_at IS NULL OR expires_at > now())
+SELECT k.id, k.type, k.name, k.key_hash, k.prefix, k.scopes, k.owner_user_id, k.project_id, k.expires_at, k.last_used_at, k.revoked_at, k.created_at FROM api_keys k
+LEFT JOIN users u ON u.id = k.owner_user_id
+WHERE k.key_hash = $1
+  AND k.revoked_at IS NULL
+  AND (k.expires_at IS NULL OR k.expires_at > now())
+  AND (k.owner_user_id IS NULL OR u.is_active = true)
 `
 
+// User-bound tokens (PATs, unlocked editor tokens) are rejected once their
+// owner is deactivated — so deactivation immediately revokes access, mirroring
+// session resolution. Unattended keys (no owner, e.g. read-only editor tokens)
+// are unaffected.
 func (q *Queries) GetAPIKeyByHash(ctx context.Context, keyHash string) (ApiKey, error) {
 	row := q.db.QueryRow(ctx, getAPIKeyByHash, keyHash)
 	var i ApiKey
