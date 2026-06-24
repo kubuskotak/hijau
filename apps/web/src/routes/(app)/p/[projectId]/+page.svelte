@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api, type EditorRow, type Language, type Translation } from '$lib/api';
+	import { subscribeUpdates, type LiveUpdate } from '$lib/live';
 	import { Button, buttonVariants } from '$lib/components/ui/button/index';
 	import {Input} from '$lib/components/ui/input/index';
 	import {Label} from '$lib/components/ui/label/index';
@@ -40,7 +41,25 @@
 		}
 	}
 
-	onMount(loadFeed);
+	// Live: patch the matching cell when another user's edit arrives over SSE.
+	// Draft-safe — EditorCell keeps an in-progress draft and only adopts the new
+	// text when the user hasn't typed unsaved changes.
+	function applyLive(u: LiveUpdate | null) {
+		if (!u) return;
+		const lang = (data.languages as Language[]).find((l) => l.tag === u.language);
+		if (!lang) return;
+		const row = rows.find((r) => r.name === u.key);
+		const cell = row?.translations[lang.id];
+		if (cell) {
+			cell.text = u.text;
+			cell.state = u.state as Translation['state'];
+		}
+	}
+
+	onMount(() => {
+		void loadFeed();
+		return subscribeUpdates(pid, applyLive);
+	});
 
 	let searchTimer: ReturnType<typeof setTimeout> | undefined;
 	function onSearchInput() {

@@ -27,13 +27,20 @@
 	// Local editable copy; initialised from the prop (intentionally not tracked
 	// here — the $effect below re-syncs when the translation changes).
 	let draft = $state(untrack(() => tr.text));
+	let lastText = $state(untrack(() => tr.text)); // last server text we observed
 	let saving = $state(false);
 	let err = $state('');
 
-	// Re-sync the draft when the translation changes externally (e.g. a refetch
-	// after a base-language edit cascades OUTDATED to this cell).
+	// Re-sync when the translation changes externally (a refetch after a
+	// base-language OUTDATED cascade, or a live SSE update from another user).
+	// Draft-safe: adopt the new value only if the user hasn't typed unsaved
+	// changes; otherwise keep their draft so a live update never clobbers it.
 	$effect(() => {
-		draft = tr.text;
+		const incoming = tr.text;
+		if (incoming !== lastText) {
+			if (draft === lastText) draft = incoming;
+			lastText = incoming;
+		}
 	});
 
 	async function save() {
