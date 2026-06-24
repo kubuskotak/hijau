@@ -93,6 +93,55 @@ func (s *Server) createPAT(ctx context.Context, body *espresso.JSON[patReq]) (es
 	return espresso.JSON[editorTokenDTO]{Data: editorTokenDTO{Token: gen.Raw, Prefix: gen.Prefix, Scopes: body.Data.Scopes}}, nil
 }
 
+type patListDTO struct {
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	Prefix     string `json:"prefix"`
+	CreatedAt  string `json:"createdAt"`
+	LastUsedAt string `json:"lastUsedAt,omitempty"`
+}
+
+// listMyTokens lists the signed-in user's active PATs (never the secret).
+func (s *Server) listMyTokens(ctx context.Context) (espresso.JSON[[]patListDTO], error) {
+	p := auth.FromContext(ctx)
+	if p.Kind != auth.UserPrincipal || p.UserID == "" {
+		return espresso.JSON[[]patListDTO]{}, espresso.ErrUnauthorized("sign in to manage tokens")
+	}
+	rows, err := s.store.ListPATsByUser(ctx, pgText(p.UserID))
+	if err != nil {
+		return espresso.JSON[[]patListDTO]{}, espresso.ErrInternal("could not list tokens")
+	}
+	out := make([]patListDTO, 0, len(rows))
+	for _, k := range rows {
+		d := patListDTO{ID: k.ID, Name: k.Name, Prefix: k.Prefix, CreatedAt: k.CreatedAt.Time.UTC().Format(time.RFC3339)}
+		if k.LastUsedAt.Valid {
+			d.LastUsedAt = k.LastUsedAt.Time.UTC().Format(time.RFC3339)
+		}
+		out = append(out, d)
+	}
+	return espresso.JSON[[]patListDTO]{Data: out}, nil
+}
+
+type tokenIDPath struct {
+	ID string `path:"id"`
+}
+
+// revokeMyToken revokes one of the signed-in user's own PATs.
+func (s *Server) revokeMyToken(ctx context.Context, path *extractor.Path[tokenIDPath]) (espresso.JSON[okDTO], error) {
+	p := auth.FromContext(ctx)
+	if p.Kind != auth.UserPrincipal || p.UserID == "" {
+		return espresso.JSON[okDTO]{}, espresso.ErrUnauthorized("sign in to manage tokens")
+	}
+	k, err := s.store.GetAPIKeyByID(ctx, path.Data.ID)
+	if err != nil || k.Type != db.ApiKeyTypePat || !k.OwnerUserID.Valid || k.OwnerUserID.String != p.UserID {
+		return espresso.JSON[okDTO]{}, espresso.ErrNotFound("token not found")
+	}
+	if err := s.store.RevokeAPIKey(ctx, k.ID); err != nil {
+		return espresso.JSON[okDTO]{}, espresso.ErrInternal("could not revoke token")
+	}
+	return espresso.JSON[okDTO]{Data: okDTO{OK: true}}, nil
+}
+
 type unlockReq struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`

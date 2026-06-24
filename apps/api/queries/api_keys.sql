@@ -15,6 +15,9 @@ WHERE k.key_hash = $1
   AND (k.expires_at IS NULL OR k.expires_at > now())
   AND (k.owner_user_id IS NULL OR u.is_active = true);
 
+-- name: GetAPIKeyByID :one
+SELECT * FROM api_keys WHERE id = $1;
+
 -- name: TouchAPIKey :exec
 UPDATE api_keys SET last_used_at = now() WHERE id = $1;
 

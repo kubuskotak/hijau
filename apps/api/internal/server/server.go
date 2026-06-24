@@ -62,7 +62,9 @@ func (s *Server) Router() *espresso.Router {
 		Get("/api/v1/projects/{pid}/translations/by-subid/{n}", espresso.Doppio(s.resolveBySubID)).
 		Post("/api/v1/projects/{pid}/editor/token", espresso.Lungo(s.createEditorToken)).
 		Post("/api/v1/projects/{pid}/editor/unlock", espresso.Lungo(s.unlockEditor)).
+		Get("/api/v1/me/tokens", espresso.HandlerCtx(s.listMyTokens)).
 		Post("/api/v1/me/tokens", espresso.Doppio(s.createPAT)).
+		Delete("/api/v1/me/tokens/{id}", espresso.Doppio(s.revokeMyToken)).
 		Get("/api/v1/projects/{pid}/keys", espresso.Lungo(s.listKeys)).
 		Post("/api/v1/projects/{pid}/keys", espresso.Lungo(s.createKey)).
 		Delete("/api/v1/projects/{pid}/keys/{kid}", espresso.Doppio(s.deleteKey)).

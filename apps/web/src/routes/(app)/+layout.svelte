@@ -26,6 +26,7 @@
 			<div class="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
 				<a href="/" class="font-semibold tracking-tight">Hijau</a>
 				<div class="flex items-center gap-3 text-sm">
+					<a href="/settings" class="text-muted-foreground hover:text-foreground">Settings</a>
 					<span class="text-muted-foreground">{session.user.email}</span>
 					<Button variant="outline" size="sm" onclick={logout}>Sign out</Button>
 				</div>

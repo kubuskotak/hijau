@@ -172,6 +172,13 @@ export interface GlossaryTerm {
 	translations: Record<string, string>;
 }
 
+export interface Pat {
+	id: string;
+	name: string;
+	prefix: string;
+	createdAt: string;
+	lastUsedAt?: string;
+}
 export interface Member {
 	id: string;
 	userId: string;
@@ -221,6 +228,11 @@ export const api = {
 	login: (b: { email: string; password: string }) => req<User>('POST', '/auth/login', b),
 	logout: () => req<{ ok: boolean }>('POST', '/auth/logout'),
 	me: () => req<User>('GET', '/auth/me'),
+
+	// personal access tokens (for the CLI + MCP)
+	listMyTokens: () => req<Pat[]>('GET', '/me/tokens'),
+	createToken: (name: string) => req<{ token: string; prefix: string }>('POST', '/me/tokens', { name }),
+	revokeToken: (id: string) => req<{ ok: boolean }>('DELETE', `/me/tokens/${id}`),
 
 	// orgs & projects
 	listOrgs: () => req<Org[]>('GET', '/orgs'),

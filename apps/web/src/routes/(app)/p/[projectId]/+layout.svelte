@@ -12,7 +12,8 @@
 		{ href: `/p/${pid}/io`, label: 'Import / Export' },
 		{ href: `/p/${pid}/webhooks`, label: 'Webhooks' },
 		{ href: `/p/${pid}/activity`, label: 'Activity' },
-		{ href: `/p/${pid}/members`, label: 'Members' }
+		{ href: `/p/${pid}/members`, label: 'Members' },
+		{ href: `/p/${pid}/settings`, label: 'Settings' }
 	]);
 </script>
 

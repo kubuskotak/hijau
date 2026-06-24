@@ -92,6 +92,30 @@ func (q *Queries) GetAPIKeyByHash(ctx context.Context, keyHash string) (ApiKey, 
 	return i, err
 }
 
+const getAPIKeyByID = `-- name: GetAPIKeyByID :one
+SELECT id, type, name, key_hash, prefix, scopes, owner_user_id, project_id, expires_at, last_used_at, revoked_at, created_at FROM api_keys WHERE id = $1
+`
+
+func (q *Queries) GetAPIKeyByID(ctx context.Context, id string) (ApiKey, error) {
+	row := q.db.QueryRow(ctx, getAPIKeyByID, id)
+	var i ApiKey
+	err := row.Scan(
+		&i.ID,
+		&i.Type,
+		&i.Name,
+		&i.KeyHash,
+		&i.Prefix,
+		&i.Scopes,
+		&i.OwnerUserID,
+		&i.ProjectID,
+		&i.ExpiresAt,
+		&i.LastUsedAt,
+		&i.RevokedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const listAPIKeysByProject = `-- name: ListAPIKeysByProject :many
 SELECT id, type, name, key_hash, prefix, scopes, owner_user_id, project_id, expires_at, last_used_at, revoked_at, created_at FROM api_keys
 WHERE project_id = $1 AND revoked_at IS NULL

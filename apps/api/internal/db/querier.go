@@ -45,6 +45,7 @@ type Querier interface {
 	// session resolution. Unattended keys (no owner, e.g. read-only editor tokens)
 	// are unaffected.
 	GetAPIKeyByHash(ctx context.Context, keyHash string) (ApiKey, error)
+	GetAPIKeyByID(ctx context.Context, id string) (ApiKey, error)
 	GetComment(ctx context.Context, id string) (Comment, error)
 	GetCommentProjectID(ctx context.Context, id string) (string, error)
 	GetGlossaryTerm(ctx context.Context, id string) (GlossaryTerm, error)
