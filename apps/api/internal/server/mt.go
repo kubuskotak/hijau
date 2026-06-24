@@ -147,9 +147,14 @@ func (s *Server) suggestMT(ctx context.Context, path *extractor.Path[keyPath], b
 		return espresso.JSON[mt.Result]{}, espresso.ErrBadRequest(err.Error())
 	}
 
+	targetLangID := ""
+	if tl, err := s.store.GetLanguageByTag(ctx, db.GetLanguageByTagParams{ProjectID: pid, Tag: body.Data.TargetLang}); err == nil {
+		targetLangID = tl.ID
+	}
 	res, err := mt.GuardedTranslate(ctx, provider, mt.Request{
 		Source: source, SourceLang: baseLang.Tag, TargetLang: body.Data.TargetLang,
 		KeyName: key.Name, Description: key.Description.String,
+		Glossary: s.buildGlossaryHints(ctx, pid, targetLangID, source),
 	})
 	if err != nil {
 		var mismatch *mt.ErrPlaceholderMismatch

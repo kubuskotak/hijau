@@ -14,6 +14,7 @@ type Querier interface {
 	CountKeys(ctx context.Context, projectID string) (int64, error)
 	CreateAPIKey(ctx context.Context, arg CreateAPIKeyParams) (ApiKey, error)
 	CreateComment(ctx context.Context, arg CreateCommentParams) (Comment, error)
+	CreateGlossaryTerm(ctx context.Context, arg CreateGlossaryTermParams) (GlossaryTerm, error)
 	CreateKey(ctx context.Context, arg CreateKeyParams) (TranslationKey, error)
 	CreateLanguage(ctx context.Context, arg CreateLanguageParams) (Language, error)
 	CreateNamespace(ctx context.Context, arg CreateNamespaceParams) (Namespace, error)
@@ -27,6 +28,7 @@ type Querier interface {
 	CreateTranslation(ctx context.Context, arg CreateTranslationParams) (Translation, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	DeleteExpiredSessions(ctx context.Context) error
+	DeleteGlossaryTerm(ctx context.Context, id string) error
 	DeleteLanguage(ctx context.Context, id string) error
 	DeleteMTConfig(ctx context.Context, projectID string) error
 	DeleteSession(ctx context.Context, tokenHash string) error
@@ -36,6 +38,7 @@ type Querier interface {
 	GetAPIKeyByHash(ctx context.Context, keyHash string) (ApiKey, error)
 	GetComment(ctx context.Context, id string) (Comment, error)
 	GetCommentProjectID(ctx context.Context, id string) (string, error)
+	GetGlossaryTerm(ctx context.Context, id string) (GlossaryTerm, error)
 	GetKey(ctx context.Context, id string) (TranslationKey, error)
 	GetLanguage(ctx context.Context, id string) (Language, error)
 	GetLanguageByTag(ctx context.Context, arg GetLanguageByTagParams) (Language, error)
@@ -58,6 +61,8 @@ type Querier interface {
 	InsertTranslationHistory(ctx context.Context, arg InsertTranslationHistoryParams) error
 	ListAPIKeysByProject(ctx context.Context, projectID pgtype.Text) ([]ApiKey, error)
 	ListCommentsForTranslation(ctx context.Context, translationID pgtype.Text) ([]ListCommentsForTranslationRow, error)
+	ListGlossaryTerms(ctx context.Context, projectID string) ([]GlossaryTerm, error)
+	ListGlossaryTranslationsByProject(ctx context.Context, projectID string) ([]GlossaryTranslation, error)
 	ListKeyHistory(ctx context.Context, arg ListKeyHistoryParams) ([]TranslationHistory, error)
 	ListKeyScreenshotRegions(ctx context.Context, keyID string) ([]ListKeyScreenshotRegionsRow, error)
 	ListKeys(ctx context.Context, arg ListKeysParams) ([]TranslationKey, error)
@@ -73,6 +78,7 @@ type Querier interface {
 	ListTranslationsForKeys(ctx context.Context, dollar_1 []string) ([]Translation, error)
 	ListUserOrganizations(ctx context.Context, userID string) ([]Organization, error)
 	MarkSiblingsOutdated(ctx context.Context, arg MarkSiblingsOutdatedParams) ([]Translation, error)
+	MatchGlossary(ctx context.Context, arg MatchGlossaryParams) ([]MatchGlossaryRow, error)
 	ResolveComment(ctx context.Context, arg ResolveCommentParams) (Comment, error)
 	RevokeAPIKey(ctx context.Context, id string) error
 	SetKeySourceHash(ctx context.Context, arg SetKeySourceHashParams) error
@@ -85,6 +91,7 @@ type Querier interface {
 	UpdateKey(ctx context.Context, arg UpdateKeyParams) (TranslationKey, error)
 	UpdateProject(ctx context.Context, arg UpdateProjectParams) (Project, error)
 	UpdateTranslation(ctx context.Context, arg UpdateTranslationParams) (Translation, error)
+	UpsertGlossaryTranslation(ctx context.Context, arg UpsertGlossaryTranslationParams) (GlossaryTranslation, error)
 	UpsertMTConfig(ctx context.Context, arg UpsertMTConfigParams) (MtConfig, error)
 }
 

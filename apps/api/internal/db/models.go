@@ -462,6 +462,23 @@ type Comment struct {
 	UpdatedAt     pgtype.Timestamptz `json:"updatedAt"`
 }
 
+type GlossaryTerm struct {
+	ID             string             `json:"id"`
+	ProjectID      string             `json:"projectId"`
+	Term           string             `json:"term"`
+	Description    string             `json:"description"`
+	CaseSensitive  bool               `json:"caseSensitive"`
+	DoNotTranslate bool               `json:"doNotTranslate"`
+	CreatedAt      pgtype.Timestamptz `json:"createdAt"`
+}
+
+type GlossaryTranslation struct {
+	ID         string `json:"id"`
+	TermID     string `json:"termId"`
+	LanguageID string `json:"languageId"`
+	Text       string `json:"text"`
+}
+
 type Language struct {
 	ID          string             `json:"id"`
 	ProjectID   string             `json:"projectId"`
