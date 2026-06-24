@@ -1,0 +1,6 @@
+# Bun is the only JS/TS runtime in this monorepo (no Node). `[run] bun = true`
+# makes every `bun run <script>` execute with the Bun runtime instead of falling
+# through `#!/usr/bin/env node` shebangs on tool binaries (vite, tsc, svelte-kit,
+# svelte-check). Equivalent to passing `--bun` to every run.
+[run]
+bun = true

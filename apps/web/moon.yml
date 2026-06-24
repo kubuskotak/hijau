@@ -1,0 +1,22 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+layer: 'application'
+language: 'typescript'
+
+# No moon toolchain is configured; tasks run as system commands on the ambient
+# PATH (mise-provided Bun). `--bun` forces the Bun runtime so the node-shebang
+# tool binaries (vite / svelte-kit / svelte-check) never fall through to Node.
+tasks:
+  dev:
+    command: 'bun run --bun dev'
+    options:
+      cache: false
+      persistent: true
+  build:
+    command: 'bun run --bun build'
+  check:
+    command: 'bun run --bun check'
+  preview:
+    command: 'bun run --bun preview'
+    options:
+      cache: false
+      persistent: true

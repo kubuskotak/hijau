@@ -1,0 +1,22 @@
+{
+	"name": "@hijau/web",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"main": "./src/index.ts",
+	"module": "./src/index.ts",
+	"types": "./src/index.ts",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"test": "bun test",
+		"check": "tsc --noEmit"
+	},
+	"devDependencies": {
+		"typescript": "^6.0.3"
+	},
+	"dependencies": {
+		"@hijau/i18n": "workspace:*"
+	}
+}

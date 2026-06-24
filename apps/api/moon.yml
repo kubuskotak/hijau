@@ -15,3 +15,12 @@ tasks:
     command: 'go mod tidy'
     options:
       cache: false
+  migrate:
+    command: 'go run ./cmd/migrate up'
+    options:
+      cache: false
+  dev:
+    command: 'go run ./cmd/server'
+    options:
+      cache: false
+      persistent: true

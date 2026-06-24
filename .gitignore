@@ -27,6 +27,7 @@ mise.local.toml
 
 # Local data
 /data/
+/apps/api/data/
 /docker/pgdata/
 
 # OS / editors

@@ -1,0 +1,148 @@
+// Package server wires the espresso router, middleware, and HTTP handlers.
+package server
+
+import (
+	"context"
+	"errors"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/suryakencana007/espresso/v2"
+	httpmiddleware "github.com/suryakencana007/espresso/v2/middleware/http"
+
+	"github.com/portierglobal/hijau/apps/api/internal/auth"
+	"github.com/portierglobal/hijau/apps/api/internal/config"
+	"github.com/portierglobal/hijau/apps/api/internal/crypto"
+	"github.com/portierglobal/hijau/apps/api/internal/storage"
+	"github.com/portierglobal/hijau/apps/api/internal/store"
+)
+
+const sessionTTL = 30 * 24 * time.Hour
+
+type Server struct {
+	cfg     config.Config
+	store   *store.Store
+	storage storage.Store
+	cipher  *crypto.Cipher // nil when HIJAU_ENCRYPTION_KEY is unset
+	broker  *broker
+}
+
+func New(cfg config.Config, st *store.Store) *Server {
+	c, _ := crypto.New(cfg.EncryptionKey) // nil cipher => credential-backed MT disabled
+	return &Server{cfg: cfg, store: st, storage: storage.NewFS(cfg.StorageDir), cipher: c, broker: newBroker()}
+}
+
+// Router builds the HTTP router with global middleware and all routes.
+func (s *Server) Router() *espresso.Router {
+	return espresso.Portafilter().
+		Use(httpmiddleware.RequestIDMiddleware()).
+		Use(httpmiddleware.RecoverMiddleware()).
+		Use(loggingMiddleware). // flusher-aware (espresso's wraps away http.Flusher, breaking SSE)
+		Use(httpmiddleware.CORSMiddleware(httpmiddleware.DefaultCORSConfig)).
+		Use(auth.Middleware(s.store)).
+		Get("/health", espresso.Ristretto(s.health)).
+		Get("/health/ready", espresso.HandlerCtx(s.ready)).
+		Post("/api/v1/auth/signup", espresso.Doppio(s.signup)).
+		Post("/api/v1/auth/login", espresso.Doppio(s.login)).
+		Post("/api/v1/auth/logout", espresso.HandlerCtx(s.logout)).
+		Get("/api/v1/auth/me", espresso.HandlerCtx(s.me)).
+		Get("/api/v1/orgs", espresso.HandlerCtx(s.listOrgs)).
+		Get("/api/v1/projects", espresso.HandlerCtx(s.listProjects)).
+		Post("/api/v1/projects", espresso.Doppio(s.createProject)).
+		Get("/api/v1/projects/{pid}", espresso.Doppio(s.getProject)).
+		Patch("/api/v1/projects/{pid}", espresso.Lungo(s.updateProject)).
+		Get("/api/v1/projects/{pid}/languages", espresso.Doppio(s.listLanguages)).
+		Post("/api/v1/projects/{pid}/languages", espresso.Lungo(s.createLanguage)).
+		Put("/api/v1/projects/{pid}/base-language", espresso.Lungo(s.setBaseLanguage)).
+		Get("/api/v1/projects/{pid}/namespaces", espresso.Doppio(s.listNamespaces)).
+		Post("/api/v1/projects/{pid}/namespaces", espresso.Lungo(s.createNamespace)).
+		Get("/api/v1/projects/{pid}/editor", espresso.Lungo(s.editorFeed)).
+		Get("/api/v1/projects/{pid}/translations/by-subid/{n}", espresso.Doppio(s.resolveBySubID)).
+		Post("/api/v1/projects/{pid}/editor/token", espresso.Lungo(s.createEditorToken)).
+		Post("/api/v1/projects/{pid}/editor/unlock", espresso.Lungo(s.unlockEditor)).
+		Get("/api/v1/me/tokens", espresso.HandlerCtx(s.listMyTokens)).
+		Post("/api/v1/me/tokens", espresso.Doppio(s.createPAT)).
+		Delete("/api/v1/me/tokens/{id}", espresso.Doppio(s.revokeMyToken)).
+		Get("/api/v1/projects/{pid}/keys", espresso.Lungo(s.listKeys)).
+		Post("/api/v1/projects/{pid}/keys", espresso.Lungo(s.createKey)).
+		Delete("/api/v1/projects/{pid}/keys/{kid}", espresso.Doppio(s.deleteKey)).
+		Get("/api/v1/projects/{pid}/keys/{kid}/translations", espresso.Doppio(s.listKeyTranslations)).
+		Put("/api/v1/projects/{pid}/keys/{kid}/translations/{lang}", espresso.Lungo(s.setTranslation)).
+		Post("/api/v1/projects/{pid}/keys/{kid}/translations/{lang}/transition", espresso.Lungo(s.transitionTranslation)).
+		Get("/api/v1/projects/{pid}/keys/{kid}/translations/{lang}/history", espresso.Doppio(s.translationHistory)).
+		Get("/api/v1/projects/{pid}/keys/{kid}/translations/{lang}/comments", espresso.Doppio(s.listTranslationComments)).
+		Post("/api/v1/projects/{pid}/keys/{kid}/translations/{lang}/comments", espresso.Lungo(s.addTranslationComment)).
+		Post("/api/v1/projects/{pid}/screenshots", espresso.Lungo(s.uploadScreenshot)).
+		Get("/api/v1/projects/{pid}/screenshots/{sid}/image", espresso.Doppio(s.serveScreenshotImage)).
+		Get("/api/v1/projects/{pid}/keys/{kid}/screenshots", espresso.Doppio(s.listKeyScreenshots)).
+		Get("/api/v1/projects/{pid}/mt/config", espresso.Doppio(s.getMTConfig)).
+		Put("/api/v1/projects/{pid}/mt/config", espresso.Lungo(s.configureMT)).
+		Post("/api/v1/projects/{pid}/keys/{kid}/mt/suggest", espresso.Lungo(s.suggestMT)).
+		Post("/api/v1/projects/{pid}/auto-translate", espresso.Lungo(s.autoTranslate)).
+		Get("/api/v1/projects/{pid}/export", espresso.Lungo(s.exportTranslations)).
+		Post("/api/v1/projects/{pid}/import", espresso.Lungo(s.importTranslations)).
+		Get("/api/v1/projects/{pid}/webhooks", espresso.Doppio(s.listWebhooks)).
+		Post("/api/v1/projects/{pid}/webhooks", espresso.Lungo(s.createWebhook)).
+		Delete("/api/v1/projects/{pid}/webhooks/{wid}", espresso.Doppio(s.deleteWebhook)).
+		Get("/api/v1/projects/{pid}/webhooks/{wid}/deliveries", espresso.Doppio(s.listWebhookDeliveries)).
+		Get("/api/v1/projects/{pid}/members", espresso.Doppio(s.listMembers)).
+		Post("/api/v1/projects/{pid}/members", espresso.Lungo(s.addMember)).
+		Patch("/api/v1/projects/{pid}/members/{mid}", espresso.Lungo(s.updateMemberRole)).
+		Delete("/api/v1/projects/{pid}/members/{mid}", espresso.Doppio(s.removeMember)).
+		Put("/api/v1/projects/{pid}/members/{mid}/languages", espresso.Lungo(s.setMemberLanguages)).
+		Get("/api/v1/projects/{pid}/activity", espresso.Lungo(s.listActivity)).
+		Get("/api/v1/projects/{pid}/events", espresso.Stream(s.streamEvents)).
+		Post("/api/v1/projects/{pid}/keys/{kid}/tm/suggest", espresso.Lungo(s.tmSuggest)).
+		Get("/api/v1/projects/{pid}/glossary", espresso.Doppio(s.listGlossary)).
+		Post("/api/v1/projects/{pid}/glossary", espresso.Lungo(s.createGlossaryTerm)).
+		Delete("/api/v1/projects/{pid}/glossary/{termId}", espresso.Doppio(s.deleteGlossaryTerm)).
+		Put("/api/v1/projects/{pid}/glossary/{termId}/translations/{lang}", espresso.Lungo(s.setGlossaryTranslation)).
+		Post("/api/v1/comments/{cid}/resolve", espresso.Lungo(s.resolveComment)).
+		// Catch-all: serve the built SPA when HIJAU_WEB_DIR is set. The specific
+		// /api and /health routes above win in the mux; this only handles the
+		// remaining GETs (SPA routes + static assets).
+		Get("/", http.HandlerFunc(s.serveStatic))
+}
+
+// authErr maps an authorization result to the right HTTP error.
+func authErr(err error) error {
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, auth.ErrForbidden):
+		return espresso.ErrForbidden("you don't have permission to do that")
+	default:
+		return espresso.ErrInternal("authorization check failed")
+	}
+}
+
+// requireUser returns the user/PAT-owner id, or an unauthorized error.
+func requireUser(ctx context.Context) (string, error) {
+	if p := auth.FromContext(ctx); p.UserID != "" {
+		return p.UserID, nil
+	}
+	return "", espresso.ErrUnauthorized("authentication required")
+}
+
+func (s *Server) sessionCookie(raw string) *http.Cookie {
+	return &http.Cookie{
+		Name:     auth.SessionCookieName,
+		Value:    raw,
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		Secure:   strings.HasPrefix(s.cfg.PublicURL, "https"),
+		Expires:  time.Now().Add(sessionTTL),
+		MaxAge:   int(sessionTTL.Seconds()),
+	}
+}
+
+func clearedSessionCookie() *http.Cookie {
+	return &http.Cookie{Name: auth.SessionCookieName, Value: "", Path: "/", HttpOnly: true, MaxAge: -1}
+}
+
+func pgText(s string) pgtype.Text { return pgtype.Text{String: s, Valid: s != ""} }
+
+func pgTS(t time.Time) pgtype.Timestamptz { return pgtype.Timestamptz{Time: t, Valid: true} }
