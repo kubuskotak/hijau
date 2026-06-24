@@ -55,9 +55,14 @@ type SetTranslationInput struct {
 	Action         Action
 	Actor          Actor
 	ExpectedVersion *int32 // optional optimistic-concurrency precondition
-	// MachineOrigin, when set (e.g. machine_mt / machine_tm), marks a SetText
-	// write as machine-produced with that origin; empty means a human edit.
-	MachineOrigin db.TranslationOrigin
+	// Origin overrides the stored origin on a SetText write (e.g. machine_mt,
+	// machine_tm, import); empty means a human edit. is_machine is derived from
+	// it (true for the machine_* origins).
+	Origin db.TranslationOrigin
+}
+
+func isMachineOrigin(o db.TranslationOrigin) bool {
+	return o == db.TranslationOriginMachineMt || o == db.TranslationOriginMachineTm
 }
 
 // SetTranslationResult reports the new translation and how many sibling
@@ -94,10 +99,9 @@ func SetTranslation(ctx context.Context, st *store.Store, in SetTranslationInput
 				return err
 			}
 			newText = pgTextOrNull(in.Text)
-			if in.MachineOrigin != "" {
-				newOrigin = in.MachineOrigin
-			} else {
-				newOrigin = db.TranslationOriginHuman
+			newOrigin = db.TranslationOriginHuman
+			if in.Origin != "" {
+				newOrigin = in.Origin
 			}
 			if strings.TrimSpace(in.Text) == "" {
 				newState = db.TranslationStateUntranslated
@@ -117,7 +121,7 @@ func SetTranslation(ctx context.Context, st *store.Store, in SetTranslationInput
 
 		updated, err := q.UpdateTranslation(ctx, db.UpdateTranslationParams{
 			ID: cur.ID, Text: newText, State: newState, Origin: newOrigin,
-			IsMachine: in.MachineOrigin != "", UpdatedBy: pgTextPtr(in.Actor.UserID),
+			IsMachine: isMachineOrigin(newOrigin), UpdatedBy: pgTextPtr(in.Actor.UserID),
 		})
 		if err != nil {
 			return err

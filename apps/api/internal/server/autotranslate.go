@@ -136,7 +136,7 @@ func (s *Server) autoTranslate(ctx context.Context, path *extractor.Path[project
 
 		if _, err := service.SetTranslation(ctx, s.store, service.SetTranslationInput{
 			Key: key, Language: targetLang, BaseLanguageID: baseID, Text: text,
-			Action: service.SetText, MachineOrigin: origin, Actor: actor,
+			Action: service.SetText, Origin: origin, Actor: actor,
 		}); err != nil {
 			out.Failed++
 			continue
