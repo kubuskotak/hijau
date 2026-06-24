@@ -172,6 +172,15 @@ export interface GlossaryTerm {
 	translations: Record<string, string>;
 }
 
+export interface Activity {
+	id: string;
+	type: string;
+	actorKind: string;
+	actorEmail: string;
+	keyName: string;
+	languageTag: string;
+	createdAt: string;
+}
 export interface ImportResult {
 	created: number;
 	updated: number;
@@ -303,5 +312,9 @@ export const api = {
 	deleteWebhook: (pid: string, wid: string) =>
 		req<{ ok: boolean }>('DELETE', `/projects/${pid}/webhooks/${wid}`),
 	listWebhookDeliveries: (pid: string, wid: string) =>
-		req<WebhookDelivery[]>('GET', `/projects/${pid}/webhooks/${wid}/deliveries`)
+		req<WebhookDelivery[]>('GET', `/projects/${pid}/webhooks/${wid}/deliveries`),
+
+	// activity feed
+	listActivity: (pid: string, limit = 50) =>
+		req<Activity[]>('GET', `/projects/${pid}/activity?limit=${limit}`)
 };

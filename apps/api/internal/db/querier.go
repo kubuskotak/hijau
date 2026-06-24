@@ -65,6 +65,9 @@ type Querier interface {
 	InsertWebhookDelivery(ctx context.Context, arg InsertWebhookDeliveryParams) error
 	ListAPIKeysByProject(ctx context.Context, projectID pgtype.Text) ([]ApiKey, error)
 	ListActiveWebhooks(ctx context.Context, projectID string) ([]Webhook, error)
+	// Recent project activity enriched for display. key_id/language_id are plain
+	// text (no FK), so LEFT JOINs tolerate deleted keys/languages.
+	ListActivityFeed(ctx context.Context, arg ListActivityFeedParams) ([]ListActivityFeedRow, error)
 	ListCommentsForTranslation(ctx context.Context, translationID pgtype.Text) ([]ListCommentsForTranslationRow, error)
 	ListGlossaryTerms(ctx context.Context, projectID string) ([]GlossaryTerm, error)
 	ListGlossaryTranslationsByProject(ctx context.Context, projectID string) ([]GlossaryTranslation, error)

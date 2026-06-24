@@ -10,7 +10,8 @@
 		{ href: `/p/${pid}/languages`, label: 'Languages' },
 		{ href: `/p/${pid}/glossary`, label: 'Glossary' },
 		{ href: `/p/${pid}/io`, label: 'Import / Export' },
-		{ href: `/p/${pid}/webhooks`, label: 'Webhooks' }
+		{ href: `/p/${pid}/webhooks`, label: 'Webhooks' },
+		{ href: `/p/${pid}/activity`, label: 'Activity' }
 	]);
 </script>
 
