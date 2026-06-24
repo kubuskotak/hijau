@@ -1,0 +1,14 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+layer: 'application'
+language: 'typescript'
+
+tasks:
+  start:
+    command: 'bun run --bun start'
+    options:
+      cache: false
+      persistent: true
+  check:
+    command: 'bun run --bun check'
+  test:
+    command: 'bun test'

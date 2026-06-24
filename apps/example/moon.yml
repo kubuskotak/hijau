@@ -1,0 +1,16 @@
+$schema: 'https://moonrepo.dev/schemas/project.json'
+layer: 'application'
+language: 'typescript'
+
+# Tasks run as system commands on the ambient PATH (mise Bun); `--bun` forces
+# the Bun runtime for the node-shebang vite/tsc binaries.
+tasks:
+  dev:
+    command: 'bun run --bun dev'
+    options:
+      cache: false
+      persistent: true
+  build:
+    command: 'bun run --bun build'
+  check:
+    command: 'bun run --bun check'
