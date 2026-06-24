@@ -1,0 +1,110 @@
+name: CI
+
+# Build, vet, test and typecheck the polyglot monorepo on every push to main and
+# every pull request. Two independent jobs run in parallel: the Go modules
+# (apps/api, apps/cli) and the Bun/TypeScript workspaces (apps/web, apps/mcp,
+# packages/*). Each job provisions its tools with mise from mise.toml, so CI
+# uses the exact same go / sqlc / bun versions as local development.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go:
+    name: Go — api + cli
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Provision only the tools this job uses (go + sqlc) at the versions
+      # pinned in mise.toml — skipping bun/moon keeps CI off an unused toolchain.
+      # github_token defaults to the workflow token, so tool downloads are
+      # authenticated (no anonymous GitHub rate limits).
+      - uses: jdx/mise-action@v4
+        with:
+          install_args: go sqlc
+
+      - name: Cache Go modules & build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('apps/api/go.sum', 'apps/cli/go.sum') }}
+          restore-keys: ${{ runner.os }}-go-
+
+      # apps/api and apps/cli are independent modules (no go.work), so each is
+      # built/vetted/tested from its own directory. The test suites are pure unit
+      # tests — no Postgres, no services, no env required.
+      - name: api — build, vet, test
+        working-directory: apps/api
+        run: |
+          go build ./...
+          go vet ./...
+          go test ./...
+
+      - name: cli — build, vet, test
+        working-directory: apps/cli
+        run: |
+          go build ./...
+          go vet ./...
+          go test ./...
+
+      # sqlc generates from migrations/ + queries/ (no live DB needed). This
+      # fails the build if the committed internal/db code is out of date with the
+      # SQL, so query/schema changes can't land without regenerating.
+      - name: sqlc — verify generated code is current
+        working-directory: apps/api
+        run: |
+          sqlc generate
+          # --porcelain catches both modified and newly-generated (untracked)
+          # files, so a future sqlc that emits a new file can't slip through.
+          if [ -n "$(git status --porcelain -- internal/db)" ]; then
+            echo "::error::Generated sqlc code is stale. Run 'sqlc generate' in apps/api and commit internal/db."
+            git status --porcelain -- internal/db
+            git diff -- internal/db
+            exit 1
+          fi
+
+  js:
+    name: Web & packages — Bun
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Provision only bun (1.3.13, pinned in mise.toml). bunfig.toml
+      # ([run] bun = true) forces the Bun runtime for every script
+      # (vite / svelte-kit / svelte-check / tsc).
+      - uses: jdx/mise-action@v4
+        with:
+          install_args: bun
+
+      - name: Cache Bun install
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # --filter '*' runs the script in every workspace that defines it and
+      # skips the rest, so workspaces without a check/test script are tolerated.
+      - name: Typecheck (svelte-check / tsc)
+        run: bun run --filter '*' check
+
+      - name: Unit tests (bun test)
+        run: bun run --filter '*' test
+
+      - name: Build web (SvelteKit)
+        run: bun run --filter web build
