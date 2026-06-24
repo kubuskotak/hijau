@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api, type Activity } from '$lib/api';
+	import { subscribeUpdates } from '$lib/live';
 	import { Button } from '$lib/components/ui/button/index';
 	import { Badge } from '$lib/components/ui/badge/index';
 
@@ -25,11 +26,10 @@
 
 	onMount(() => {
 		void load();
-		// Light "live" feel: refetch periodically while the toggle is on.
-		const timer = setInterval(() => {
+		// Live: refetch instantly when the server pushes an update (SSE).
+		return subscribeUpdates(pid, () => {
 			if (live) void load();
-		}, 8000);
-		return () => clearInterval(timer);
+		});
 	});
 
 	function label(type: string): string {

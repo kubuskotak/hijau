@@ -26,11 +26,12 @@ type Server struct {
 	store   *store.Store
 	storage storage.Store
 	cipher  *crypto.Cipher // nil when HIJAU_ENCRYPTION_KEY is unset
+	broker  *broker
 }
 
 func New(cfg config.Config, st *store.Store) *Server {
 	c, _ := crypto.New(cfg.EncryptionKey) // nil cipher => credential-backed MT disabled
-	return &Server{cfg: cfg, store: st, storage: storage.NewFS(cfg.StorageDir), cipher: c}
+	return &Server{cfg: cfg, store: st, storage: storage.NewFS(cfg.StorageDir), cipher: c, broker: newBroker()}
 }
 
 // Router builds the HTTP router with global middleware and all routes.
@@ -38,7 +39,7 @@ func (s *Server) Router() *espresso.Router {
 	return espresso.Portafilter().
 		Use(httpmiddleware.RequestIDMiddleware()).
 		Use(httpmiddleware.RecoverMiddleware()).
-		Use(httpmiddleware.LoggingMiddleware()).
+		Use(loggingMiddleware). // flusher-aware (espresso's wraps away http.Flusher, breaking SSE)
 		Use(httpmiddleware.CORSMiddleware(httpmiddleware.DefaultCORSConfig)).
 		Use(auth.Middleware(s.store)).
 		Get("/health", espresso.Ristretto(s.health)).
@@ -85,6 +86,7 @@ func (s *Server) Router() *espresso.Router {
 		Delete("/api/v1/projects/{pid}/webhooks/{wid}", espresso.Doppio(s.deleteWebhook)).
 		Get("/api/v1/projects/{pid}/webhooks/{wid}/deliveries", espresso.Doppio(s.listWebhookDeliveries)).
 		Get("/api/v1/projects/{pid}/activity", espresso.Lungo(s.listActivity)).
+		Get("/api/v1/projects/{pid}/events", espresso.Stream(s.streamEvents)).
 		Post("/api/v1/projects/{pid}/keys/{kid}/tm/suggest", espresso.Lungo(s.tmSuggest)).
 		Get("/api/v1/projects/{pid}/glossary", espresso.Doppio(s.listGlossary)).
 		Post("/api/v1/projects/{pid}/glossary", espresso.Lungo(s.createGlossaryTerm)).
