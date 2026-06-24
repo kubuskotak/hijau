@@ -1,6 +1,7 @@
 package formats
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/csv"
 	"encoding/json"
@@ -216,6 +217,104 @@ func (appleStrings) Unmarshal(data []byte) ([]Entry, error) {
 			continue
 		}
 		out = append(out, Entry{Key: k, Value: v})
+	}
+	return sortedByKey(out), nil
+}
+
+// --- XLIFF 1.2 ---
+// Single-language export: the value goes in <target>; <source> carries the key
+// (we don't track per-entry source text). On import the target wins, falling
+// back to source.
+
+type xliffFormat struct{}
+
+func (xliffFormat) ID() string          { return "xliff" }
+func (xliffFormat) Ext() string         { return "xlf" }
+func (xliffFormat) ContentType() string { return "application/xml" }
+
+type xliffRoot struct {
+	XMLName xml.Name  `xml:"xliff"`
+	Version string    `xml:"version,attr"`
+	File    xliffFile `xml:"file"`
+}
+type xliffFile struct {
+	Datatype string      `xml:"datatype,attr"`
+	Original string      `xml:"original,attr"`
+	Body     []xliffUnit `xml:"body>trans-unit"`
+}
+type xliffUnit struct {
+	ID     string `xml:"id,attr"`
+	Source string `xml:"source"`
+	Target string `xml:"target"`
+}
+
+func (xliffFormat) Marshal(entries []Entry) ([]byte, error) {
+	root := xliffRoot{Version: "1.2", File: xliffFile{Datatype: "plaintext", Original: "messages"}}
+	for _, e := range sortedByKey(entries) {
+		root.File.Body = append(root.File.Body, xliffUnit{ID: e.Key, Source: e.Key, Target: e.Value})
+	}
+	b, err := xml.MarshalIndent(root, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	return append([]byte(xml.Header), append(b, '\n')...), nil
+}
+
+func (xliffFormat) Unmarshal(data []byte) ([]Entry, error) {
+	var root xliffRoot
+	if err := xml.Unmarshal(data, &root); err != nil {
+		return nil, fmt.Errorf("invalid XLIFF: %w", err)
+	}
+	out := make([]Entry, 0, len(root.File.Body))
+	for _, u := range root.File.Body {
+		v := u.Target
+		if v == "" {
+			v = u.Source
+		}
+		out = append(out, Entry{Key: u.ID, Value: v})
+	}
+	return sortedByKey(out), nil
+}
+
+// --- PO / gettext ---
+
+type poFormat struct{}
+
+func (poFormat) ID() string          { return "po" }
+func (poFormat) Ext() string         { return "po" }
+func (poFormat) ContentType() string { return "text/plain" }
+
+func (poFormat) Marshal(entries []Entry) ([]byte, error) {
+	var buf bytes.Buffer
+	buf.WriteString("msgid \"\"\nmsgstr \"\"\n\n") // minimal header
+	for _, e := range sortedByKey(entries) {
+		fmt.Fprintf(&buf, "msgid %q\nmsgstr %q\n\n", e.Key, e.Value)
+	}
+	return buf.Bytes(), nil
+}
+
+func (poFormat) Unmarshal(data []byte) ([]Entry, error) {
+	var out []Entry
+	var key string
+	var haveKey bool
+	sc := bufio.NewScanner(bytes.NewReader(data))
+	sc.Buffer(make([]byte, 1<<20), 1<<20)
+	for sc.Scan() {
+		line := strings.TrimSpace(sc.Text())
+		switch {
+		case strings.HasPrefix(line, "msgid "):
+			if s, err := strconv.Unquote(strings.TrimSpace(line[len("msgid "):])); err == nil {
+				key, haveKey = s, true
+			}
+		case strings.HasPrefix(line, "msgstr "):
+			if !haveKey {
+				continue
+			}
+			if s, err := strconv.Unquote(strings.TrimSpace(line[len("msgstr "):])); err == nil && key != "" {
+				out = append(out, Entry{Key: key, Value: s}) // empty msgid = header, skipped
+			}
+			key, haveKey = "", false
+		}
 	}
 	return sortedByKey(out), nil
 }

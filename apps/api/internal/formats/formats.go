@@ -47,6 +47,8 @@ func init() {
 	register(csvFormat{})
 	register(androidXML{})
 	register(appleStrings{})
+	register(xliffFormat{})
+	register(poFormat{})
 }
 
 // sortedByKey returns entries ordered by key, for deterministic output.
