@@ -203,6 +203,11 @@ export interface ImportResult {
 	skipped: number;
 	warnings: string[];
 }
+export interface TmxImportResult {
+	imported: number;
+	skipped: number;
+	warnings: string[];
+}
 export interface Task {
 	id: string;
 	type: string;
@@ -338,6 +343,12 @@ export const api = {
 	) => req<ImportResult>('POST', `/projects/${pid}/import`, b),
 	exportUrl: (pid: string, p: { format: string; lang: string; state?: string }) =>
 		`${BASE}/projects/${pid}/export${qs(p)}`,
+
+	// translation-memory interchange (TMX)
+	importTMX: (pid: string, content: string) =>
+		req<TmxImportResult>('POST', `/projects/${pid}/tm/import`, { content }),
+	tmxExportUrl: (pid: string, p?: { sourceLang?: string; targetLang?: string }) =>
+		`${BASE}/projects/${pid}/tm/export${qs(p)}`,
 
 	// async tasks (import / auto-translate run on the server worker)
 	listTasks: (pid: string) => req<Task[]>('GET', `/projects/${pid}/tasks`),

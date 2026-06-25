@@ -103,6 +103,8 @@ func (s *Server) Router() *espresso.Router {
 		Get("/api/v1/projects/{pid}/activity", espresso.Lungo(s.listActivity)).
 		Get("/api/v1/projects/{pid}/events", espresso.Stream(s.streamEvents)).
 		Post("/api/v1/projects/{pid}/keys/{kid}/tm/suggest", espresso.Lungo(s.tmSuggest)).
+		Post("/api/v1/projects/{pid}/tm/import", espresso.Lungo(s.importTMX)).
+		Get("/api/v1/projects/{pid}/tm/export", espresso.Lungo(s.exportTMX)).
 		Get("/api/v1/projects/{pid}/glossary", espresso.Doppio(s.listGlossary)).
 		Post("/api/v1/projects/{pid}/glossary", espresso.Lungo(s.createGlossaryTerm)).
 		Delete("/api/v1/projects/{pid}/glossary/{termId}", espresso.Doppio(s.deleteGlossaryTerm)).
