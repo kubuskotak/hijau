@@ -80,6 +80,9 @@ type Querier interface {
 	GetWebhook(ctx context.Context, id string) (Webhook, error)
 	InsertActivity(ctx context.Context, arg InsertActivityParams) error
 	InsertTMSegment(ctx context.Context, arg InsertTMSegmentParams) error
+	// Like InsertTMSegment but RETURNs the id, so the TMX importer can tell a fresh
+	// insert (row returned) from a deduped conflict (pgx.ErrNoRows).
+	InsertTMSegmentReturning(ctx context.Context, arg InsertTMSegmentReturningParams) (string, error)
 	InsertTranslationHistory(ctx context.Context, arg InsertTranslationHistoryParams) error
 	InsertWebhookDelivery(ctx context.Context, arg InsertWebhookDeliveryParams) error
 	ListAPIKeysByProject(ctx context.Context, projectID pgtype.Text) ([]ApiKey, error)
@@ -100,6 +103,9 @@ type Querier interface {
 	ListProjectMemberLanguageIDs(ctx context.Context, memberID string) ([]string, error)
 	ListProjectMembers(ctx context.Context, projectID string) ([]ListProjectMembersRow, error)
 	ListProjectsForUser(ctx context.Context, userID string) ([]Project, error)
+	// Dump TM segments for export, optionally narrowed to a source/target lang pair
+	// (pass '' to skip a filter).
+	ListTMSegments(ctx context.Context, arg ListTMSegmentsParams) ([]ListTMSegmentsRow, error)
 	ListTasksByProject(ctx context.Context, arg ListTasksByProjectParams) ([]Task, error)
 	ListTranslationHistory(ctx context.Context, arg ListTranslationHistoryParams) ([]ListTranslationHistoryRow, error)
 	ListTranslationsForKey(ctx context.Context, keyID string) ([]Translation, error)

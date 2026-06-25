@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { api, type Language, type ImportResult, type Task } from '$lib/api';
+	import { api, type Language, type ImportResult, type Task, type TmxImportResult } from '$lib/api';
 	import { Button } from '$lib/components/ui/button/index';
 	import { Label } from '$lib/components/ui/label/index';
 	import { Textarea } from '$lib/components/ui/textarea/index';
@@ -35,6 +35,42 @@
 	let importCancelled = false; // set on navigation away to stop polling
 
 	const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+	// translation-memory (TMX) state
+	let tmxExSrc = $state('');
+	let tmxExTgt = $state('');
+	const tmxExportHref = $derived(
+		api.tmxExportUrl(pid, { sourceLang: tmxExSrc, targetLang: tmxExTgt })
+	);
+	let tmxContent = $state('');
+	let tmxImporting = $state(false);
+	let tmxErr = $state('');
+	let tmxResult = $state<TmxImportResult | null>(null);
+
+	async function onTmxFile(e: Event) {
+		const file = (e.currentTarget as HTMLInputElement).files?.[0];
+		if (!file) return;
+		try {
+			tmxContent = await file.text();
+		} catch (e) {
+			tmxErr = (e as Error).message;
+		}
+	}
+
+	async function doImportTMX(e: SubmitEvent) {
+		e.preventDefault();
+		if (!tmxContent.trim()) return;
+		tmxImporting = true;
+		tmxErr = '';
+		tmxResult = null;
+		try {
+			tmxResult = await api.importTMX(pid, tmxContent);
+		} catch (e) {
+			tmxErr = (e as Error).message;
+		} finally {
+			tmxImporting = false;
+		}
+	}
 
 	onMount(() => {
 		try {
@@ -281,4 +317,91 @@
 			</div>
 		{/if}
 	</form>
+</div>
+
+<!-- TRANSLATION MEMORY (TMX) -->
+<div class="mt-8 rounded-xl border bg-card p-4 shadow-sm">
+	<h3 class="font-medium">Translation memory (TMX)</h3>
+	<p class="text-sm text-muted-foreground">
+		Move your translation memory in or out as TMX 1.4 — the interchange format used by Crowdin,
+		Phrase, Tolgee and Weblate. Imported segments immediately power TM suggestions and auto-translate.
+	</p>
+	<div class="mt-4 grid gap-8 lg:grid-cols-2">
+		<!-- TMX export -->
+		<div>
+			<h4 class="text-sm font-medium">Export</h4>
+			<p class="mt-1 text-xs text-muted-foreground">Optionally narrow to one language pair.</p>
+			<div class="mt-3 space-y-3">
+				<div class="grid grid-cols-2 gap-3">
+					<div class="space-y-1.5">
+						<Label for="tmx-src">Source</Label>
+						<select
+							id="tmx-src"
+							bind:value={tmxExSrc}
+							class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+						>
+							<option value="">Any</option>
+							{#each languages as l (l.id)}<option value={l.tag}>{l.name} ({l.tag})</option>{/each}
+						</select>
+					</div>
+					<div class="space-y-1.5">
+						<Label for="tmx-tgt">Target</Label>
+						<select
+							id="tmx-tgt"
+							bind:value={tmxExTgt}
+							class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+						>
+							<option value="">Any</option>
+							{#each languages as l (l.id)}<option value={l.tag}>{l.name} ({l.tag})</option>{/each}
+						</select>
+					</div>
+				</div>
+				<Button href={tmxExportHref} download data-sveltekit-reload>Download .tmx</Button>
+			</div>
+		</div>
+
+		<!-- TMX import -->
+		<form onsubmit={doImportTMX}>
+			<h4 class="text-sm font-medium">Import</h4>
+			<p class="mt-1 text-xs text-muted-foreground">Upload or paste a TMX file; duplicates are skipped.</p>
+			<div class="mt-3 space-y-3">
+				<div class="space-y-1.5">
+					<Label for="tmx-file">Upload .tmx</Label>
+					<input
+						id="tmx-file"
+						type="file"
+						accept=".tmx,.xml"
+						onchange={onTmxFile}
+						class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm text-muted-foreground shadow-sm file:mr-3 file:border-0 file:bg-transparent file:text-sm file:font-medium"
+					/>
+				</div>
+				<div class="space-y-1.5">
+					<Label for="tmx-content">TMX content</Label>
+					<Textarea
+						id="tmx-content"
+						bind:value={tmxContent}
+						rows={6}
+						placeholder="Paste TMX XML here…"
+						class="font-mono"
+					/>
+				</div>
+				<Button type="submit" disabled={tmxImporting || !tmxContent.trim()}>
+					{tmxImporting ? 'Importing…' : 'Import TMX'}
+				</Button>
+			</div>
+			{#if tmxErr}<p class="mt-3 text-sm text-destructive">{tmxErr}</p>{/if}
+			{#if tmxResult}
+				<div class="mt-4 rounded-xl border p-3 text-sm">
+					<span class="font-medium">Imported:</span>
+					{tmxResult.imported} &middot; <span class="font-medium">Skipped:</span>
+					{tmxResult.skipped}
+					{#if tmxResult.warnings.length > 0}
+						<ul class="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
+							{#each tmxResult.warnings as w, i (i)}<li>{w}</li>{/each}
+						</ul>
+					{/if}
+				</div>
+			{/if}
+		</form>
+	</div>
 </div>

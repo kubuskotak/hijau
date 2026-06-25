@@ -150,3 +150,90 @@ func (q *Queries) InsertTMSegment(ctx context.Context, arg InsertTMSegmentParams
 	)
 	return err
 }
+
+const insertTMSegmentReturning = `-- name: InsertTMSegmentReturning :one
+INSERT INTO tm_segments (id, project_id, source_lang, target_lang, source_text, target_text, source_hash, key_id, origin)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+ON CONFLICT (project_id, source_lang, target_lang, source_hash, target_text) DO NOTHING
+RETURNING id
+`
+
+type InsertTMSegmentReturningParams struct {
+	ID         string      `json:"id"`
+	ProjectID  string      `json:"projectId"`
+	SourceLang string      `json:"sourceLang"`
+	TargetLang string      `json:"targetLang"`
+	SourceText string      `json:"sourceText"`
+	TargetText string      `json:"targetText"`
+	SourceHash string      `json:"sourceHash"`
+	KeyID      pgtype.Text `json:"keyId"`
+	Origin     string      `json:"origin"`
+}
+
+// Like InsertTMSegment but RETURNs the id, so the TMX importer can tell a fresh
+// insert (row returned) from a deduped conflict (pgx.ErrNoRows).
+func (q *Queries) InsertTMSegmentReturning(ctx context.Context, arg InsertTMSegmentReturningParams) (string, error) {
+	row := q.db.QueryRow(ctx, insertTMSegmentReturning,
+		arg.ID,
+		arg.ProjectID,
+		arg.SourceLang,
+		arg.TargetLang,
+		arg.SourceText,
+		arg.TargetText,
+		arg.SourceHash,
+		arg.KeyID,
+		arg.Origin,
+	)
+	var id string
+	err := row.Scan(&id)
+	return id, err
+}
+
+const listTMSegments = `-- name: ListTMSegments :many
+SELECT source_lang, target_lang, source_text, target_text
+FROM tm_segments
+WHERE project_id = $1
+  AND ($2 = '' OR source_lang = $2)
+  AND ($3 = '' OR target_lang = $3)
+ORDER BY source_lang, target_lang, source_text
+`
+
+type ListTMSegmentsParams struct {
+	ProjectID  string      `json:"projectId"`
+	SourceLang interface{} `json:"sourceLang"`
+	TargetLang interface{} `json:"targetLang"`
+}
+
+type ListTMSegmentsRow struct {
+	SourceLang string `json:"sourceLang"`
+	TargetLang string `json:"targetLang"`
+	SourceText string `json:"sourceText"`
+	TargetText string `json:"targetText"`
+}
+
+// Dump TM segments for export, optionally narrowed to a source/target lang pair
+// (pass ” to skip a filter).
+func (q *Queries) ListTMSegments(ctx context.Context, arg ListTMSegmentsParams) ([]ListTMSegmentsRow, error) {
+	rows, err := q.db.Query(ctx, listTMSegments, arg.ProjectID, arg.SourceLang, arg.TargetLang)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListTMSegmentsRow{}
+	for rows.Next() {
+		var i ListTMSegmentsRow
+		if err := rows.Scan(
+			&i.SourceLang,
+			&i.TargetLang,
+			&i.SourceText,
+			&i.TargetText,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
