@@ -1,5 +1,10 @@
 # Hijau
 
+[![CI](https://github.com/kubuskotak/hijau/actions/workflows/ci.yml/badge.svg)](https://github.com/kubuskotak/hijau/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/kubuskotak/hijau?sort=semver)](https://github.com/kubuskotak/hijau/releases)
+[![Container](https://img.shields.io/badge/ghcr.io-hijau-2496ED?logo=docker&logoColor=white)](https://github.com/kubuskotak/hijau/pkgs/container/hijau)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
 **Open-source, self-hosted software localization — a developer-first alternative to Crowdin / Phrase / Tolgee, fully OSS (MIT, not open-core).**
 
 Hijau is a complete translation-management system built around two things most OSS tools do poorly:
@@ -13,12 +18,23 @@ Around those it’s a full TMS: teams & per-language roles, projects, languages,
 
 ## Quickstart (Docker)
 
+**Run the prebuilt image** (multi-arch amd64/arm64 from GHCR — no local build):
+
 ```sh
 cp .env.example .env          # then set SESSION_SECRET + HIJAU_ENCRYPTION_KEY
-docker compose up --build     # Postgres + the app (REST API + web UI) on :8080
+docker compose pull           # pull ghcr.io/kubuskotak/hijau:latest
+docker compose up -d          # Postgres + the app (REST API + web UI) on :8080
 ```
 
-Open **http://localhost:8080**, sign up, and create a project. Migrations run automatically on boot, and the Go binary serves the built SPA — one container, no extra web server.
+Or **build from source** (for contributors, or to run an unreleased commit):
+
+```sh
+docker compose up --build
+```
+
+> The image is published to GHCR by the release workflow (on every `v*` tag, plus `:edge` on each push to `main`). Maintainers: make the package **public** once (repo → Packages → hijau → Package settings → Change visibility) so the anonymous `docker compose pull` above works for everyone.
+
+Open **http://localhost:8080**, sign up, and create a project. Migrations run automatically on boot, and the Go binary serves the built SPA — one container, no extra web server. Pin a specific image with `HIJAU_TAG=v0.1.0 docker compose up -d`.
 
 > Generate the secrets with high entropy, e.g. `openssl rand -base64 32`. `HIJAU_ENCRYPTION_KEY` encrypts MT/webhook credentials at rest (AES-256-GCM), so keep it stable across restarts.
 

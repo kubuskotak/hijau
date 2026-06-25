@@ -1,8 +1,13 @@
 # Hijau self-hosted stack: Postgres + the app (a single Go server that serves
-# the REST API and the built SPA on one port). One command:
-# `docker compose up --build`, then open http://localhost:8080.
+# the REST API and the built SPA on one port).
+#   Prebuilt:    docker compose pull && docker compose up -d   (pulls from GHCR)
+#   From source: docker compose up --build                      (builds locally)
+# Then open http://localhost:8080.
 services:
   app:
+    # Prebuilt multi-arch image from GHCR (override the tag with HIJAU_TAG, e.g.
+    # HIJAU_TAG=v0.1.0). `build` is kept so `--build` still builds from source.
+    image: ghcr.io/kubuskotak/hijau:${HIJAU_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile
