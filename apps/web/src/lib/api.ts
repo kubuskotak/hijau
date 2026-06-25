@@ -197,10 +197,24 @@ export interface Activity {
 	createdAt: string;
 }
 export interface ImportResult {
+	taskId?: string; // set when the import was enqueued async (poll getTask)
 	created: number;
 	updated: number;
 	skipped: number;
 	warnings: string[];
+}
+export interface Task {
+	id: string;
+	type: string;
+	status: 'queued' | 'running' | 'succeeded' | 'failed';
+	progress: number;
+	processed?: number;
+	total?: number;
+	result?: unknown;
+	error?: string;
+	createdAt: string;
+	startedAt?: string;
+	finishedAt?: string;
 }
 export interface Webhook {
 	id: string;
@@ -320,10 +334,14 @@ export const api = {
 	// import / export
 	importTranslations: (
 		pid: string,
-		b: { format: string; lang: string; conflict?: string; content: string }
+		b: { format: string; lang: string; conflict?: string; content: string; async?: boolean }
 	) => req<ImportResult>('POST', `/projects/${pid}/import`, b),
 	exportUrl: (pid: string, p: { format: string; lang: string; state?: string }) =>
 		`${BASE}/projects/${pid}/export${qs(p)}`,
+
+	// async tasks (import / auto-translate run on the server worker)
+	listTasks: (pid: string) => req<Task[]>('GET', `/projects/${pid}/tasks`),
+	getTask: (pid: string, tid: string) => req<Task>('GET', `/projects/${pid}/tasks/${tid}`),
 
 	// webhooks
 	listWebhooks: (pid: string) => req<Webhook[]>('GET', `/projects/${pid}/webhooks`),

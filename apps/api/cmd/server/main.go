@@ -40,7 +40,16 @@ func main() {
 		log.Fatalf("store: %v", err)
 	}
 
-	router := server.New(cfg, st).Router().
+	srv := server.New(cfg, st)
+	srv.StartWorker(ctx) // background task worker (async import / auto-translate)
+
+	router := srv.Router().
+		// Drain the worker BEFORE closing the pool: hooks run in registration
+		// order, and the worker needs the DB to finish any in-flight task.
+		OnShutdown(func(shutdownCtx context.Context) error {
+			srv.StopWorker(shutdownCtx)
+			return nil
+		}).
 		OnShutdown(func(context.Context) error {
 			st.Close()
 			return nil
