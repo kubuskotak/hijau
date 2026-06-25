@@ -26,9 +26,10 @@
 
 	onMount(() => {
 		void load();
-		// Live: refetch instantly when the server pushes an update (SSE).
-		return subscribeUpdates(pid, () => {
-			if (live) void load();
+		// Live: refetch instantly when the server pushes an update (SSE). Ignore
+		// task.* progress ticks — they don't change the activity feed.
+		return subscribeUpdates(pid, (u) => {
+			if (live && !u?.event?.startsWith('task.')) void load();
 		});
 	});
 

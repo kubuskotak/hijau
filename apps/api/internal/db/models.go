@@ -598,6 +598,7 @@ type Task struct {
 	CreatedAt  pgtype.Timestamptz `json:"createdAt"`
 	StartedAt  pgtype.Timestamptz `json:"startedAt"`
 	FinishedAt pgtype.Timestamptz `json:"finishedAt"`
+	Payload    []byte             `json:"payload"`
 }
 
 type TmSegment struct {

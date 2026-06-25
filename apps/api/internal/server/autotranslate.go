@@ -2,6 +2,9 @@ package server
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
 
 	"github.com/suryakencana007/espresso/v2"
 	"github.com/suryakencana007/espresso/v2/extractor"
@@ -16,9 +19,11 @@ import (
 type autoTranslateReq struct {
 	TargetLang string `json:"targetLang"`
 	Limit      int    `json:"limit"`
+	Async      bool   `json:"async"` // when true, enqueue a task and return 202 + taskId
 }
 
 type autoTranslateDTO struct {
+	TaskID     string `json:"taskId,omitempty"` // set only on the async (202) path
 	TargetLang string `json:"targetLang"`
 	Scanned    int    `json:"scanned"`
 	Translated int    `json:"translated"`
@@ -35,28 +40,80 @@ type autoTranslateDTO struct {
 // (history + activity + ICU validation), attributed to MT. Bounded per call.
 func (s *Server) autoTranslate(ctx context.Context, path *extractor.Path[projectPath], body *espresso.JSON[autoTranslateReq]) (espresso.JSON[autoTranslateDTO], error) {
 	pid := path.Data.PID
-	if body.Data.TargetLang == "" {
-		return espresso.JSON[autoTranslateDTO]{}, espresso.ErrBadRequest("targetLang is required")
-	}
-	targetLang, err := s.store.GetLanguageByTag(ctx, db.GetLanguageByTagParams{ProjectID: pid, Tag: body.Data.TargetLang})
+	targetLang, err := s.lookupTargetLang(ctx, pid, body.Data)
 	if err != nil {
-		return espresso.JSON[autoTranslateDTO]{}, espresso.ErrNotFound("language not found")
+		return espresso.JSON[autoTranslateDTO]{}, err
 	}
+	// Authorize before touching project/base-language config so an unauthorized
+	// caller gets 403 — not a 412/400 that leaks whether a base language is set.
 	if err := authErr(auth.Authorize(ctx, s.store, auth.PermTranslationsWrite, auth.Check{ProjectID: pid, LanguageID: targetLang.ID})); err != nil {
 		return espresso.JSON[autoTranslateDTO]{}, err
 	}
+	baseLang, limit, err := s.resolveBaseAndLimit(ctx, pid, targetLang, body.Data)
+	if err != nil {
+		return espresso.JSON[autoTranslateDTO]{}, err
+	}
+	uid := auth.FromContext(ctx).UserID
+
+	if body.Data.Async {
+		t, err := s.enqueue(ctx, pid, db.TaskTypeAutoTranslate, body.Data, uid)
+		if err != nil {
+			return espresso.JSON[autoTranslateDTO]{}, espresso.ErrInternal("could not enqueue auto-translate")
+		}
+		return espresso.JSON[autoTranslateDTO]{
+			StatusCode: http.StatusAccepted,
+			Data:       autoTranslateDTO{TaskID: t.ID, TargetLang: targetLang.Tag},
+		}, nil
+	}
+
+	out, err := s.runAutoTranslate(ctx, pid, baseLang, targetLang, limit, uid, nil)
+	if err != nil {
+		return espresso.JSON[autoTranslateDTO]{}, err
+	}
+	return espresso.JSON[autoTranslateDTO]{Data: out}, nil
+}
+
+// lookupTargetLang resolves the target language (the part needed to authorize).
+func (s *Server) lookupTargetLang(ctx context.Context, pid string, req autoTranslateReq) (db.Language, error) {
+	if req.TargetLang == "" {
+		return db.Language{}, espresso.ErrBadRequest("targetLang is required")
+	}
+	targetLang, err := s.store.GetLanguageByTag(ctx, db.GetLanguageByTagParams{ProjectID: pid, Tag: req.TargetLang})
+	if err != nil {
+		return db.Language{}, espresso.ErrNotFound("language not found")
+	}
+	return targetLang, nil
+}
+
+// resolveBaseAndLimit validates the project's base language (vs the target) and
+// the effective limit. Runs after authorization (handler) — the worker calls it
+// directly since enqueue already authorized the request.
+func (s *Server) resolveBaseAndLimit(ctx context.Context, pid string, targetLang db.Language, req autoTranslateReq) (db.Language, int, error) {
 	proj, err := s.store.GetProject(ctx, pid)
 	if err != nil || proj.BaseLanguageID.String == "" {
-		return espresso.JSON[autoTranslateDTO]{}, espresso.ErrPreconditionFailed("the project has no base language")
+		return db.Language{}, 0, espresso.ErrPreconditionFailed("the project has no base language")
 	}
 	baseID := proj.BaseLanguageID.String
 	if targetLang.ID == baseID {
-		return espresso.JSON[autoTranslateDTO]{}, espresso.ErrBadRequest("cannot auto-translate the base language")
+		return db.Language{}, 0, espresso.ErrBadRequest("cannot auto-translate the base language")
 	}
 	baseLang, err := s.store.GetLanguage(ctx, baseID)
 	if err != nil {
-		return espresso.JSON[autoTranslateDTO]{}, espresso.ErrInternal("base language lookup failed")
+		return db.Language{}, 0, espresso.ErrInternal("base language lookup failed")
 	}
+	limit := req.Limit
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+	return baseLang, limit, nil
+}
+
+// runAutoTranslate fills untranslated keys for the target language (TM exact hit,
+// else MT through the ICU guard). progress (nullable) is called after each
+// scanned candidate with (done, total). Safe to call from a worker goroutine.
+func (s *Server) runAutoTranslate(ctx context.Context, pid string, baseLang, targetLang db.Language, limit int, actorUserID string, progress func(done, total int)) (autoTranslateDTO, error) {
+	baseID := baseLang.ID
+	out := autoTranslateDTO{TargetLang: targetLang.Tag}
 
 	// MT is optional — without it, only exact TM hits are applied.
 	var provider mt.Provider
@@ -66,14 +123,9 @@ func (s *Server) autoTranslate(ctx context.Context, path *extractor.Path[project
 		}
 	}
 
-	limit := body.Data.Limit
-	if limit <= 0 || limit > 200 {
-		limit = 50
-	}
-
 	keys, err := s.store.ListKeys(ctx, db.ListKeysParams{ProjectID: pid, Lim: 500, Off: 0})
 	if err != nil {
-		return espresso.JSON[autoTranslateDTO]{}, espresso.ErrInternal("could not list keys")
+		return out, espresso.ErrInternal("could not list keys")
 	}
 	ids := make([]string, len(keys))
 	for i, k := range keys {
@@ -83,7 +135,7 @@ func (s *Server) autoTranslate(ctx context.Context, path *extractor.Path[project
 	if len(ids) > 0 {
 		trs, err := s.store.ListTranslationsForKeys(ctx, ids)
 		if err != nil {
-			return espresso.JSON[autoTranslateDTO]{}, espresso.ErrInternal("could not load translations")
+			return out, espresso.ErrInternal("could not load translations")
 		}
 		for _, t := range trs {
 			m := byKey[t.KeyID]
@@ -95,12 +147,15 @@ func (s *Server) autoTranslate(ctx context.Context, path *extractor.Path[project
 		}
 	}
 
-	actor := service.Actor{Kind: db.AuthorKindMt, UserID: auth.FromContext(ctx).UserID}
-	out := autoTranslateDTO{TargetLang: body.Data.TargetLang}
+	actor := service.Actor{Kind: db.AuthorKindMt, UserID: actorUserID}
+	total := len(keys)
 
-	for _, key := range keys {
+	for i, key := range keys {
+		if progress != nil {
+			progress(i+1, total)
+		}
 		if out.Translated >= limit {
-			break
+			continue
 		}
 		row := byKey[key.ID]
 		source := row[baseID].Text.String
@@ -148,5 +203,23 @@ func (s *Server) autoTranslate(ctx context.Context, path *extractor.Path[project
 			out.FromMT++
 		}
 	}
-	return espresso.JSON[autoTranslateDTO]{Data: out}, nil
+	return out, nil
+}
+
+// runAutoTranslateTask is the worker entry point for a queued auto-translate task.
+func (s *Server) runAutoTranslateTask(ctx context.Context, t db.Task) (any, error) {
+	var req autoTranslateReq
+	if err := json.Unmarshal(t.Payload, &req); err != nil {
+		return nil, fmt.Errorf("bad auto-translate payload: %w", err)
+	}
+	pid := t.ProjectID.String
+	targetLang, err := s.lookupTargetLang(ctx, pid, req)
+	if err != nil {
+		return nil, err
+	}
+	baseLang, limit, err := s.resolveBaseAndLimit(ctx, pid, targetLang, req)
+	if err != nil {
+		return nil, err
+	}
+	return s.runAutoTranslate(ctx, pid, baseLang, targetLang, limit, t.CreatedBy.String, s.taskProgress(t))
 }

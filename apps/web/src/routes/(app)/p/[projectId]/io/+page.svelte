@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { api, type Language, type ImportResult } from '$lib/api';
+	import { api, type Language, type ImportResult, type Task } from '$lib/api';
 	import { Button } from '$lib/components/ui/button/index';
 	import { Label } from '$lib/components/ui/label/index';
 	import { Textarea } from '$lib/components/ui/textarea/index';
@@ -30,6 +30,11 @@
 	let importing = $state(false);
 	let importErr = $state('');
 	let result = $state<ImportResult | null>(null);
+	let importProgress = $state(0);
+	let importPhase = $state(''); // '' | queued | running
+	let importCancelled = false; // set on navigation away to stop polling
+
+	const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 	onMount(() => {
 		try {
@@ -41,6 +46,9 @@
 		} finally {
 			loading = false;
 		}
+		return () => {
+			importCancelled = true; // stop any in-flight poll loop on navigation
+		};
 	});
 
 	async function onFileChange(e: Event) {
@@ -60,13 +68,58 @@
 		importing = true;
 		importErr = '';
 		result = null;
+		importProgress = 0;
+		importPhase = '';
 		try {
-			result = await api.importTranslations(pid, {
+			// Enqueue on the server worker (async) so a large file doesn't block or
+			// time out the request, then poll the task until it finishes.
+			const enq = await api.importTranslations(pid, {
 				format: imFormat,
 				lang: imLang,
 				conflict: imConflict,
-				content: imContent
+				content: imContent,
+				async: true
 			});
+			if (!enq.taskId) {
+				result = enq; // server ran it inline — use the result directly
+				return;
+			}
+			const tid = enq.taskId;
+			let fails = 0;
+			const maxPolls = 600; // ~7 min at 700ms before giving up
+			for (let i = 0; i < maxPolls; i++) {
+				await sleep(700);
+				if (importCancelled) return; // navigated away
+				let t: Task;
+				try {
+					t = await api.getTask(pid, tid);
+					fails = 0;
+				} catch {
+					// A transient blip (proxy/restart) shouldn't kill the wait — the
+					// task is still running server-side. Retry a few times first.
+					if (++fails >= 5) {
+						importErr = 'lost connection while waiting for the import';
+						return;
+					}
+					continue;
+				}
+				importPhase = t.status;
+				importProgress = t.progress;
+				if (t.status === 'succeeded') {
+					result = (t.result as ImportResult) ?? {
+						created: 0,
+						updated: 0,
+						skipped: 0,
+						warnings: []
+					};
+					return;
+				}
+				if (t.status === 'failed') {
+					importErr = t.error || 'import failed';
+					return;
+				}
+			}
+			importErr = 'import is taking longer than expected — check back on the Tasks list';
 		} catch (e) {
 			importErr = (e as Error).message;
 		} finally {
@@ -193,8 +246,19 @@
 				/>
 			</div>
 			<Button type="submit" disabled={importing || !imLang || !imContent.trim()}>
-				{importing ? 'Importing…' : 'Import'}
+				{#if !importing}
+					Import
+				{:else if importPhase === 'queued' || importPhase === ''}
+					Queued…
+				{:else}
+					Importing… {importProgress}%
+				{/if}
 			</Button>
+			{#if importing && importPhase === 'running'}
+				<div class="h-2 w-full overflow-hidden rounded-full bg-muted">
+					<div class="h-full bg-foreground transition-all" style="width: {importProgress}%"></div>
+				</div>
+			{/if}
 		</div>
 
 		{#if importErr}<p class="mt-3 text-sm text-destructive">{importErr}</p>{/if}

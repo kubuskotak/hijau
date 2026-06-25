@@ -12,7 +12,13 @@ import (
 
 type Querier interface {
 	AddProjectMemberLanguage(ctx context.Context, arg AddProjectMemberLanguageParams) error
+	// Atomically grab the oldest queued task and mark it running. FOR UPDATE SKIP
+	// LOCKED makes this safe even if more than one worker ever runs concurrently.
+	ClaimNextTask(ctx context.Context) (Task, error)
 	ClearProjectMemberLanguages(ctx context.Context, memberID string) error
+	// Clear error too: a task may carry a stale error from a prior partial run that
+	// was requeued by RecoverRunningTasks and then succeeded.
+	CompleteTask(ctx context.Context, arg CompleteTaskParams) error
 	CountKeys(ctx context.Context, projectID string) (int64, error)
 	CreateAPIKey(ctx context.Context, arg CreateAPIKeyParams) (ApiKey, error)
 	CreateComment(ctx context.Context, arg CreateCommentParams) (Comment, error)
@@ -27,6 +33,7 @@ type Querier interface {
 	CreateScreenshot(ctx context.Context, arg CreateScreenshotParams) (Screenshot, error)
 	CreateScreenshotRegion(ctx context.Context, arg CreateScreenshotRegionParams) (ScreenshotRegion, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
+	CreateTask(ctx context.Context, arg CreateTaskParams) (Task, error)
 	CreateTranslation(ctx context.Context, arg CreateTranslationParams) (Translation, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	CreateWebhook(ctx context.Context, arg CreateWebhookParams) (Webhook, error)
@@ -38,6 +45,8 @@ type Querier interface {
 	DeleteSession(ctx context.Context, tokenHash string) error
 	DeleteUserSessions(ctx context.Context, userID string) error
 	DeleteWebhook(ctx context.Context, id string) error
+	// Clear result for the symmetric reason (a requeued run that then fails).
+	FailTask(ctx context.Context, arg FailTaskParams) error
 	FindTMExact(ctx context.Context, arg FindTMExactParams) ([]FindTMExactRow, error)
 	FindTMFuzzy(ctx context.Context, arg FindTMFuzzyParams) ([]FindTMFuzzyRow, error)
 	// User-bound tokens (PATs, unlocked editor tokens) are rejected once their
@@ -62,6 +71,7 @@ type Querier interface {
 	GetProjectMemberByID(ctx context.Context, id string) (ProjectMember, error)
 	GetScreenshot(ctx context.Context, id string) (Screenshot, error)
 	GetSessionByTokenHash(ctx context.Context, tokenHash string) (GetSessionByTokenHashRow, error)
+	GetTask(ctx context.Context, id string) (Task, error)
 	GetTranslation(ctx context.Context, arg GetTranslationParams) (Translation, error)
 	GetTranslationBySubID(ctx context.Context, subID pgtype.Int8) (Translation, error)
 	GetTranslationForUpdate(ctx context.Context, arg GetTranslationForUpdateParams) (Translation, error)
@@ -90,6 +100,7 @@ type Querier interface {
 	ListProjectMemberLanguageIDs(ctx context.Context, memberID string) ([]string, error)
 	ListProjectMembers(ctx context.Context, projectID string) ([]ListProjectMembersRow, error)
 	ListProjectsForUser(ctx context.Context, userID string) ([]Project, error)
+	ListTasksByProject(ctx context.Context, arg ListTasksByProjectParams) ([]Task, error)
 	ListTranslationHistory(ctx context.Context, arg ListTranslationHistoryParams) ([]ListTranslationHistoryRow, error)
 	ListTranslationsForKey(ctx context.Context, keyID string) ([]Translation, error)
 	ListTranslationsForKeys(ctx context.Context, dollar_1 []string) ([]Translation, error)
@@ -98,10 +109,15 @@ type Querier interface {
 	ListWebhooks(ctx context.Context, projectID string) ([]Webhook, error)
 	MarkSiblingsOutdated(ctx context.Context, arg MarkSiblingsOutdatedParams) ([]Translation, error)
 	MatchGlossary(ctx context.Context, arg MatchGlossaryParams) ([]MatchGlossaryRow, error)
+	// On boot, any task still marked running is orphaned (the worker that owned it
+	// died); requeue it so a single-instance deployment recovers cleanly. Reset the
+	// progress counters so a polling client doesn't briefly see last-run's numbers.
+	RecoverRunningTasks(ctx context.Context) error
 	ResolveComment(ctx context.Context, arg ResolveCommentParams) (Comment, error)
 	RevokeAPIKey(ctx context.Context, id string) error
 	SetKeySourceHash(ctx context.Context, arg SetKeySourceHashParams) error
 	SetProjectBaseLanguage(ctx context.Context, arg SetProjectBaseLanguageParams) error
+	SetTaskProgress(ctx context.Context, arg SetTaskProgressParams) error
 	SetUserActive(ctx context.Context, arg SetUserActiveParams) error
 	SoftDeleteKey(ctx context.Context, id string) error
 	SoftDeleteProject(ctx context.Context, id string) error

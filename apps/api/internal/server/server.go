@@ -27,11 +27,17 @@ type Server struct {
 	storage storage.Store
 	cipher  *crypto.Cipher // nil when HIJAU_ENCRYPTION_KEY is unset
 	broker  *broker
+
+	workerWake chan struct{} // nudges the background worker to claim a freshly-enqueued task
+	workerDone chan struct{} // closed when the worker loop exits (set by StartWorker)
 }
 
 func New(cfg config.Config, st *store.Store) *Server {
 	c, _ := crypto.New(cfg.EncryptionKey) // nil cipher => credential-backed MT disabled
-	return &Server{cfg: cfg, store: st, storage: storage.NewFS(cfg.StorageDir), cipher: c, broker: newBroker()}
+	return &Server{
+		cfg: cfg, store: st, storage: storage.NewFS(cfg.StorageDir), cipher: c,
+		broker: newBroker(), workerWake: make(chan struct{}, 1),
+	}
 }
 
 // Router builds the HTTP router with global middleware and all routes.
@@ -83,6 +89,8 @@ func (s *Server) Router() *espresso.Router {
 		Post("/api/v1/projects/{pid}/auto-translate", espresso.Lungo(s.autoTranslate)).
 		Get("/api/v1/projects/{pid}/export", espresso.Lungo(s.exportTranslations)).
 		Post("/api/v1/projects/{pid}/import", espresso.Lungo(s.importTranslations)).
+		Get("/api/v1/projects/{pid}/tasks", espresso.Doppio(s.listTasks)).
+		Get("/api/v1/projects/{pid}/tasks/{tid}", espresso.Doppio(s.getTask)).
 		Get("/api/v1/projects/{pid}/webhooks", espresso.Doppio(s.listWebhooks)).
 		Post("/api/v1/projects/{pid}/webhooks", espresso.Lungo(s.createWebhook)).
 		Delete("/api/v1/projects/{pid}/webhooks/{wid}", espresso.Doppio(s.deleteWebhook)).
