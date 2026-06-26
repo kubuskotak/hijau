@@ -42,6 +42,59 @@ export interface Comment {
 	body: string;
 	resolved: boolean;
 }
+export interface MtResult {
+	text: string;
+	confidence?: number;
+	notes?: string;
+}
+export interface TmMatch {
+	sourceText: string;
+	targetText: string;
+	score: number;
+	exact: boolean;
+}
+export interface GlossaryTerm {
+	id: string;
+	term: string;
+	description?: string;
+	caseSensitive?: boolean;
+	doNotTranslate?: boolean;
+}
+export interface ImportResult {
+	taskId?: string;
+	created: number;
+	updated: number;
+	skipped: number;
+	warnings: string[];
+}
+export interface AutoTranslateResult {
+	taskId?: string;
+	targetLang: string;
+	scanned: number;
+	translated: number;
+	fromTM: number;
+	fromMT: number;
+	skipped: number;
+	failed: number;
+}
+export interface Task {
+	id: string;
+	type: string;
+	status: string;
+	progress: number;
+	processed?: number;
+	total?: number;
+	result?: unknown;
+	error?: string;
+	createdAt: string;
+	startedAt?: string;
+	finishedAt?: string;
+}
+export interface TmxImportResult {
+	imported: number;
+	skipped: number;
+	warnings: string[];
+}
 
 export interface KeyQuery {
 	search?: string;
@@ -62,6 +115,26 @@ export interface Api {
 	transition(projectId: string, keyId: string, lang: string, action: 'approve' | 'reject'): Promise<Translation>;
 	editorFeed(projectId: string, q?: KeyQuery): Promise<EditorFeed>;
 	addComment(projectId: string, keyId: string, lang: string, body: string): Promise<Comment>;
+	mtSuggest(projectId: string, keyId: string, targetLang: string): Promise<MtResult>;
+	autoTranslate(
+		projectId: string,
+		body: { targetLang: string; limit?: number; async?: boolean }
+	): Promise<AutoTranslateResult>;
+	searchTM(projectId: string, keyId: string, targetLang: string): Promise<TmMatch[]>;
+	listGlossary(projectId: string): Promise<GlossaryTerm[]>;
+	createGlossaryTerm(
+		projectId: string,
+		body: { term: string; description?: string; caseSensitive?: boolean; doNotTranslate?: boolean }
+	): Promise<GlossaryTerm>;
+	exportTranslations(projectId: string, q: { format: string; lang: string; state?: string }): Promise<string>;
+	importTranslations(
+		projectId: string,
+		body: { format: string; lang: string; conflict?: string; content: string; async?: boolean }
+	): Promise<ImportResult>;
+	getTask(projectId: string, taskId: string): Promise<Task>;
+	listTasks(projectId: string): Promise<Task[]>;
+	exportTMX(projectId: string, q: { sourceLang?: string; targetLang?: string }): Promise<string>;
+	importTMX(projectId: string, content: string): Promise<TmxImportResult>;
 }
 
 export class HijauApiError extends Error {
@@ -76,6 +149,10 @@ export class HijauApiError extends Error {
 }
 
 function qs(q?: KeyQuery): string {
+	return query(q as Record<string, unknown> | undefined);
+}
+
+function query(q?: Record<string, unknown>): string {
 	if (!q) return '';
 	const sp = new URLSearchParams();
 	for (const [k, v] of Object.entries(q)) {
@@ -145,5 +222,70 @@ export class HijauClient implements Api {
 		return this.req<Comment>('POST', `/projects/${projectId}/keys/${keyId}/translations/${lang}/comments`, {
 			body
 		});
+	}
+
+	// reqText returns the raw response body (for file exports, which are CSV/XML/
+	// TMX/etc. — not JSON, so req()'s JSON.parse would fail).
+	private async reqText(method: string, path: string): Promise<string> {
+		const res = await fetch(this.base + path, {
+			method,
+			headers: this.token ? { Authorization: `Bearer ${this.token}` } : {}
+		});
+		const text = await res.text();
+		if (!res.ok) {
+			let code = 'ERROR';
+			let message = res.statusText;
+			try {
+				const e = JSON.parse(text)?.error;
+				if (e) {
+					code = e.code ?? code;
+					message = e.message ?? message;
+				}
+			} catch {
+				/* non-JSON error body */
+			}
+			throw new HijauApiError(res.status, code, message);
+		}
+		return text;
+	}
+
+	mtSuggest(projectId: string, keyId: string, targetLang: string) {
+		return this.req<MtResult>('POST', `/projects/${projectId}/keys/${keyId}/mt/suggest`, { targetLang });
+	}
+	autoTranslate(projectId: string, body: { targetLang: string; limit?: number; async?: boolean }) {
+		return this.req<AutoTranslateResult>('POST', `/projects/${projectId}/auto-translate`, body);
+	}
+	searchTM(projectId: string, keyId: string, targetLang: string) {
+		return this.req<TmMatch[]>('POST', `/projects/${projectId}/keys/${keyId}/tm/suggest`, { targetLang });
+	}
+	listGlossary(projectId: string) {
+		return this.req<GlossaryTerm[]>('GET', `/projects/${projectId}/glossary`);
+	}
+	createGlossaryTerm(
+		projectId: string,
+		body: { term: string; description?: string; caseSensitive?: boolean; doNotTranslate?: boolean }
+	) {
+		return this.req<GlossaryTerm>('POST', `/projects/${projectId}/glossary`, body);
+	}
+	exportTranslations(projectId: string, q: { format: string; lang: string; state?: string }) {
+		return this.reqText('GET', `/projects/${projectId}/export${query(q)}`);
+	}
+	importTranslations(
+		projectId: string,
+		body: { format: string; lang: string; conflict?: string; content: string; async?: boolean }
+	) {
+		return this.req<ImportResult>('POST', `/projects/${projectId}/import`, body);
+	}
+	getTask(projectId: string, taskId: string) {
+		return this.req<Task>('GET', `/projects/${projectId}/tasks/${taskId}`);
+	}
+	listTasks(projectId: string) {
+		return this.req<Task[]>('GET', `/projects/${projectId}/tasks`);
+	}
+	exportTMX(projectId: string, q: { sourceLang?: string; targetLang?: string }) {
+		return this.reqText('GET', `/projects/${projectId}/tm/export${query(q)}`);
+	}
+	importTMX(projectId: string, content: string) {
+		return this.req<TmxImportResult>('POST', `/projects/${projectId}/tm/import`, { content });
 	}
 }

@@ -30,6 +30,19 @@ function stubApi(overrides: Partial<Api> = {}): Api {
 			total: 1
 		}),
 		addComment: async (_p, _k, _l, body) => ({ id: 'c1', body, resolved: false }),
+		mtSuggest: async () => ({ text: 'Bonjour', confidence: 0.9 }),
+		autoTranslate: async (_p, b) => ({
+			taskId: 'task1', targetLang: b.targetLang, scanned: 0, translated: 0, fromTM: 0, fromMT: 0, skipped: 0, failed: 0
+		}),
+		searchTM: async () => [{ sourceText: 'Hi', targetText: 'Salut', score: 80, exact: false }],
+		listGlossary: async () => [{ id: 'g1', term: 'Hijau' }],
+		createGlossaryTerm: async (_p, b) => ({ id: 'g2', term: b.term }),
+		exportTranslations: async () => '{"greeting.hi":"Hi"}',
+		importTranslations: async () => ({ created: 1, updated: 0, skipped: 0, warnings: [] }),
+		getTask: async (_p, taskId) => ({ id: taskId, type: 'auto_translate', status: 'succeeded', progress: 100, createdAt: '2026-01-01T00:00:00Z' }),
+		listTasks: async () => [],
+		exportTMX: async () => '<?xml version="1.0"?>\n<tmx version="1.4"></tmx>',
+		importTMX: async () => ({ imported: 1, skipped: 0, warnings: [] }),
 		...overrides
 	};
 }
@@ -51,7 +64,12 @@ describe('hijau mcp server', () => {
 		const client = await connect(stubApi());
 		const { tools } = await client.listTools();
 		const names = tools.map((t) => t.name);
-		for (const n of ['list_projects', 'get_project', 'list_keys', 'create_key', 'set_translation', 'set_review_state', 'find_untranslated_keys', 'add_comment']) {
+		for (const n of [
+				'list_projects', 'get_project', 'list_keys', 'create_key', 'set_translation', 'set_review_state',
+				'find_untranslated_keys', 'add_comment', 'mt_suggest', 'search_translation_memory', 'auto_translate',
+				'get_task', 'list_tasks', 'list_glossary', 'add_glossary_term', 'export_translations',
+				'import_translations', 'export_tmx', 'import_tmx'
+			]) {
 			expect(names).toContain(n);
 		}
 	});
@@ -60,6 +78,21 @@ describe('hijau mcp server', () => {
 		const client = await connect(stubApi());
 		const res = await client.callTool({ name: 'list_projects', arguments: {} });
 		expect(firstText(res)).toContain('Demo');
+	});
+
+	test('auto_translate enqueues and returns a taskId to poll', async () => {
+		const client = await connect(stubApi());
+		const res = await client.callTool({ name: 'auto_translate', arguments: { projectId: 'p1', targetLang: 'fr' } });
+		expect(firstText(res)).toContain('"taskId": "task1"');
+	});
+
+	test('export_translations returns the raw file text (not JSON-wrapped)', async () => {
+		const client = await connect(stubApi());
+		const res = await client.callTool({
+			name: 'export_translations',
+			arguments: { projectId: 'p1', format: 'json', lang: 'en' }
+		});
+		expect(firstText(res)).toBe('{"greeting.hi":"Hi"}');
 	});
 
 	test('set_translation passes args through to the API', async () => {
