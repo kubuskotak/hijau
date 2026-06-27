@@ -53,7 +53,7 @@ Once you’re in, everything is **self-service from the UI** — no curl needed:
 | **Core** | Orgs, projects, languages, namespaces, keys, translations. Atomic write path: state machine (untranslated → translated → reviewed, + needs-work / outdated), per-string history, activity, and base-edit OUTDATED cascade — all in one transaction. |
 | **Editor** | Keys × languages grid, inline edit, approve/reject, ICU placeholder validation, search; side panel with history, comments, screenshots, and **MT/TM suggestions**. Live updates over SSE. |
 | **In-context** | `@hijau/web` (framework-agnostic), `@hijau/incontext` (Alt-click scanner + Shadow-DOM overlay + screenshots), `@hijau/react`, `@hijau/svelte`. A read-only **editor token** is safe to ship in a browser; writing requires unlock (re-auth) and is attributed to the real user. |
-| **AI-native** | REST API · **MCP server** (`@hijau/mcp`, stdio) · **Go CLI** (`hijau`). |
+| **AI-native** | REST API · **MCP server** (`@hijau/mcp` — full tool coverage; stdio + Streamable-HTTP) · **Go CLI** (`hijau`). |
 | **Intelligence** | Machine translation (Claude by default, pluggable) with an **ICU placeholder guard**; translation memory (exact + fuzzy via `pg_trgm`, populated on approval); glossary (injected into MT prompts); **auto-translate** (TM → glossary → MT → validate). |
 | **Collaboration** | Per-language roles (owner/admin/developer/translator/reviewer), comments, history, **activity feed**, **HMAC-signed webhooks** with a delivery log. |
 | **Formats** | Import/export: JSON (flat + nested/i18next), CSV, Android `strings.xml`, Apple `.strings`, XLIFF 1.2, PO/gettext. |
@@ -121,10 +121,16 @@ const hijau = createHijau({ language: 'en', records, apiUrl: '/api/v1', projectI
 enableInContext(hijau, { token: '<read-only editor token>' }); // Alt/Option-click to edit
 ```
 
-**MCP server** — create a personal access token in **Settings**, then run:
+**MCP server** — lets a coding assistant drive the whole workflow (keys, translations, review, machine translation, translation memory, glossary, import/export incl. TMX, and the async task queue). Create a personal access token in **Settings**, then run it over **stdio** (local assistants):
 
 ```sh
 HIJAU_API_URL=http://localhost:8080 HIJAU_TOKEN=hj_pat_… bun run apps/mcp/src/index.ts
+```
+
+…or over **Streamable HTTP** (remote assistants — each request authenticates with its own `Authorization: Bearer <PAT>`):
+
+```sh
+HIJAU_API_URL=http://localhost:8080 bun run apps/mcp/src/index.ts --http   # POST JSON-RPC to :8765/mcp
 ```
 
 **CLI**:

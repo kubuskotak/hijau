@@ -8,6 +8,7 @@
 	},
 	"scripts": {
 		"start": "bun run src/index.ts",
+		"start:http": "bun run src/index.ts --http",
 		"check": "tsc --noEmit",
 		"test": "bun test"
 	},
